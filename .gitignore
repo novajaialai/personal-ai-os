@@ -10,3 +10,6 @@ infra/terraform/.terraform/
 vault/
 tenant.yaml
 *.tfvars
+
+# Local stack inventory snapshots (personal, not template content)
+docs/stack-inventory/
