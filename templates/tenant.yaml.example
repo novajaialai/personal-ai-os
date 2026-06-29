@@ -1,0 +1,25 @@
+# Per-tenant deployment config. Copy to tenant.yaml and fill (or let customize.sh write it).
+tenant: jake                     # short id; becomes aios-<tenant>
+display_name: "Jake — Personal AI OS"
+hostname: aios-jake.tailnet.ts.net
+server_type: cpx41               # cpx41 tenant-zero | cpx31 light customer
+location: ash
+
+connectors:                      # MCP-native first; Nango for REST-only
+  gmail: true
+  google_calendar: true
+  otter: true
+  recall: false                  # enable when consolidating meeting capture
+  nextcloud: true
+
+personas:
+  second_brain: true
+  executive_assistant: true
+  tutor: true
+  trainer: true
+  coach: true
+
+voice:
+  mode: push_to_talk             # push_to_talk (MVP) | realtime (later)
+  stt: groq_whisper              # groq_whisper | deepgram
+  tts: elevenlabs

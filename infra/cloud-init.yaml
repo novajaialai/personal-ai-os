@@ -1,0 +1,33 @@
+#cloud-config
+# First-boot hardening + base runtime. The platform itself runs in Docker.
+package_update: true
+package_upgrade: true
+
+packages:
+  - docker.io
+  - docker-compose-plugin
+  - ufw
+  - age          # for SOPS+age secrets
+  - git
+  - curl
+
+users:
+  - name: aios
+    groups: [docker, sudo]
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    ssh_authorized_keys:
+      - REPLACE_WITH_YOUR_PUBLIC_KEY
+
+runcmd:
+  # Tailscale: private mesh access, nothing exposed publicly
+  - curl -fsSL https://tailscale.com/install.sh | sh
+  - tailscale up --ssh --hostname "aios-$(hostname)"
+  # Host firewall: default deny inbound (Tailscale carries real traffic)
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow in on tailscale0
+  - ufw --force enable
+  # Unattended security updates
+  - systemctl enable --now docker
+  - echo 'Personal AI OS base ready. Run scripts/bootstrap.sh next.'

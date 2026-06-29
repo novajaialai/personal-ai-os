@@ -1,0 +1,18 @@
+# Reverse proxy. Hostnames resolve on the tailnet (MagicDNS) only.
+# {$VAR} are read from the environment at runtime.
+
+{$AIOS_HOSTNAME} {
+	@nextcloud path /files/*
+	handle @nextcloud {
+		reverse_proxy nextcloud:80
+	}
+
+	@intake path /intake/*
+	handle @intake {
+		reverse_proxy intake:8080
+	}
+
+	handle {
+		reverse_proxy agent:3000   # the agent's chat/voice endpoint
+	}
+}

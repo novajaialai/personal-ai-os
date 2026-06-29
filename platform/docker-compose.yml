@@ -1,0 +1,57 @@
+# The GENERIC platform stack — identical on every deployment.
+# Per-tenant values come from the injected .env (see templates/.env.example).
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    # Bound to the tailnet interface only — never published to 0.0.0.0
+    ports:
+      - "${TAILSCALE_IP}:443:443"   # bind to tailnet IP (Docker bypasses UFW)
+
+  agent:
+    build: ./agent
+    restart: unless-stopped
+    env_file: ../.env
+    volumes:
+      - ${VAULT_PATH}:/vault           # Obsidian vault, git-managed
+      - agent_state:/state             # SQLite session store
+    depends_on: [db, nango]
+
+  intake:
+    build: ./intake
+    restart: unless-stopped
+    env_file: ../.env
+    volumes:
+      - ${VAULT_PATH}:/vault
+    # Receives meeting/voice webhooks; writes normalized transcripts to the vault
+
+  nango:
+    image: nangohq/nango-server:latest
+    restart: unless-stopped
+    env_file: ../.env
+    depends_on: [db]
+    # Self-hosted OAuth broker: connect-once auth, token refresh, encrypted store
+
+  nextcloud:
+    image: nextcloud:stable
+    restart: unless-stopped
+    env_file: ../.env
+    volumes:
+      - nextcloud_data:/var/www/html
+    depends_on: [db]
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    env_file: ../.env
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  caddy_data:
+  agent_state:
+  nextcloud_data:
+  db_data:

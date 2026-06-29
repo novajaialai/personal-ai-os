@@ -1,0 +1,12 @@
+# Never commit real secrets or tenant data
+.env
+*.env
+!*.env.example
+secrets/
+*.age
+*.key
+infra/terraform/*.tfstate*
+infra/terraform/.terraform/
+vault/
+tenant.yaml
+*.tfvars
