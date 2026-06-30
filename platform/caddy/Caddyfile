@@ -1,20 +1,15 @@
 # Reverse proxy — tailnet-only, Tailscale cert for valid TLS.
-# AIOS_HOSTNAME is injected from .env at runtime.
 
 https://aios-jake-1.tail828365.ts.net {
 	tls /certs/aios-jake-1.tail828365.ts.net.crt /certs/aios-jake-1.tail828365.ts.net.key
-
-	@nextcloud path /files/* /remote.php/* /ocs/* /status.php /index.php*
-	handle @nextcloud {
-		reverse_proxy nextcloud:80
-	}
 
 	@intake path /intake/*
 	handle @intake {
 		reverse_proxy intake:8080
 	}
 
+	# Nextcloud is the default handler (agent added in Phase 3)
 	handle {
-		reverse_proxy agent:3000
+		reverse_proxy nextcloud:80
 	}
 }
