@@ -1,9 +1,11 @@
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import anthropic
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 import db
@@ -52,6 +54,15 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     session_id: str
     reply: str
+
+
+_UI = Path(__file__).parent / "ui.html"
+
+
+@app.get("/", response_class=HTMLResponse)
+@app.get("/chat", response_class=HTMLResponse)
+def ui():
+    return _UI.read_text()
 
 
 @app.get("/health")

@@ -7,12 +7,14 @@
 		reverse_proxy intake:8080
 	}
 
-	@agent path /health /chat /sessions /sessions/*
-	handle @agent {
-		reverse_proxy agent:3000
+	# Nextcloud lives at /files (WebDAV stays at /remote.php/*)
+	@nextcloud path /files /files/* /remote.php/* /status.php /ocs/* /apps/* /core/* /dist/*
+	handle @nextcloud {
+		reverse_proxy nextcloud:80
 	}
 
+	# Agent handles everything else including the chat UI at /
 	handle {
-		reverse_proxy nextcloud:80
+		reverse_proxy agent:3000
 	}
 }
