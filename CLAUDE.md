@@ -4,8 +4,8 @@
 > coding agent *and* the human at the terminal. Full reasoning lives in `docs/brief.md`;
 > the executable build steps live in `docs/runbook-phase0-1.md`.
 
-**Status (2026-06-29):** Phase 0 complete. Phase 1 (foundation + hardening) complete.
-**Next: Phase 2** — Nextcloud + WebDAV vault sync. See `docs/runbook-phase2.md`.
+**Status (2026-06-29):** Phase 0 complete. Phase 1 complete. Phase 2 complete.
+**Next: Phase 3** — Agent core (headless Claude agent + SQLite sessions; cross-device resume).
 
 ---
 
