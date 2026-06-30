@@ -7,7 +7,7 @@
 		reverse_proxy intake:8080
 	}
 
-	@agent path /chat /sessions /sessions/*
+	@agent path /health /chat /sessions /sessions/*
 	handle @agent {
 		reverse_proxy agent:3000
 	}
