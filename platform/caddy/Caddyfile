@@ -1,8 +1,8 @@
 # Reverse proxy — tailnet-only, Tailscale cert for valid TLS.
-# {$VAR} are read from the environment at runtime.
+# AIOS_HOSTNAME is injected from .env at runtime.
 
-{$AIOS_HOSTNAME} {
-	tls /certs/{$AIOS_HOSTNAME}.crt /certs/{$AIOS_HOSTNAME}.key
+https://aios-jake-1.tail828365.ts.net {
+	tls /certs/aios-jake-1.tail828365.ts.net.crt /certs/aios-jake-1.tail828365.ts.net.key
 
 	@nextcloud path /files/* /remote.php/* /ocs/* /status.php /index.php*
 	handle @nextcloud {
