@@ -6,18 +6,19 @@ services:
     restart: unless-stopped
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - /srv/aios/caddy/certs:/certs:ro
       - caddy_data:/data
     # Bound to the tailnet interface only — never published to 0.0.0.0
     ports:
-      - "${TAILSCALE_IP}:443:443"   # bind to tailnet IP (Docker bypasses UFW)
+      - "${TAILSCALE_IP}:443:443"
 
   agent:
     build: ./agent
     restart: unless-stopped
     env_file: ../.env
     volumes:
-      - ${VAULT_PATH}:/vault           # Obsidian vault, git-managed
-      - agent_state:/state             # SQLite session store
+      - ${VAULT_PATH}:/vault
+      - agent_state:/state
     depends_on: [db, nango]
 
   intake:
@@ -26,14 +27,12 @@ services:
     env_file: ../.env
     volumes:
       - ${VAULT_PATH}:/vault
-    # Receives meeting/voice webhooks; writes normalized transcripts to the vault
 
   nango:
     image: nangohq/nango-server:latest
     restart: unless-stopped
     env_file: ../.env
     depends_on: [db]
-    # Self-hosted OAuth broker: connect-once auth, token refresh, encrypted store
 
   nextcloud:
     image: nextcloud:stable
@@ -41,6 +40,7 @@ services:
     env_file: ../.env
     volumes:
       - nextcloud_data:/var/www/html
+      - ${VAULT_PATH}:/srv/aios/vault   # exposed for External Storage
     depends_on: [db]
 
   db:

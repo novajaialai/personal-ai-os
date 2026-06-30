@@ -1,8 +1,10 @@
-# Reverse proxy. Hostnames resolve on the tailnet (MagicDNS) only.
+# Reverse proxy — tailnet-only, Tailscale cert for valid TLS.
 # {$VAR} are read from the environment at runtime.
 
 {$AIOS_HOSTNAME} {
-	@nextcloud path /files/*
+	tls /certs/{$AIOS_HOSTNAME}.crt /certs/{$AIOS_HOSTNAME}.key
+
+	@nextcloud path /files/* /remote.php/* /ocs/* /status.php /index.php*
 	handle @nextcloud {
 		reverse_proxy nextcloud:80
 	}
@@ -13,6 +15,6 @@
 	}
 
 	handle {
-		reverse_proxy agent:3000   # the agent's chat/voice endpoint
+		reverse_proxy agent:3000
 	}
 }

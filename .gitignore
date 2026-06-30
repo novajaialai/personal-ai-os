@@ -2,7 +2,8 @@
 .env
 *.env
 !*.env.example
-secrets/
+secrets/*
+!secrets/*.enc
 *.age
 *.key
 infra/terraform/*.tfstate*
