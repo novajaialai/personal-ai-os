@@ -6,11 +6,10 @@ services:
     restart: unless-stopped
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - /srv/aios/caddy/certs:/certs:ro
       - caddy_data:/data
-    # Bound to the tailnet interface only — never published to 0.0.0.0
+    # Internal only — tailscale serve handles TLS + external access
     ports:
-      - "${TAILSCALE_IP}:443:443"
+      - "127.0.0.1:8080:80"
 
   agent:
     build: ./agent

@@ -1,8 +1,7 @@
-# Reverse proxy — tailnet-only, Tailscale cert for valid TLS.
+# Internal HTTP router — Tailscale serve handles TLS externally.
+# Listens on :80 inside Docker; exposed to host as 127.0.0.1:8080.
 
-https://aios-jake-1.tail828365.ts.net {
-	tls /certs/aios-jake-1.tail828365.ts.net.crt /certs/aios-jake-1.tail828365.ts.net.key
-
+:80 {
 	@intake path /intake/*
 	handle @intake {
 		reverse_proxy intake:8080
