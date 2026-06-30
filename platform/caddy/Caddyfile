@@ -7,7 +7,11 @@
 		reverse_proxy intake:8080
 	}
 
-	# Nextcloud is the default handler (agent added in Phase 3)
+	@agent path /chat /sessions /sessions/*
+	handle @agent {
+		reverse_proxy agent:3000
+	}
+
 	handle {
 		reverse_proxy nextcloud:80
 	}
