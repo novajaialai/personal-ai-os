@@ -15,11 +15,22 @@ MAX_TOKENS = int(os.getenv("AGENT_MAX_TOKENS", "4096"))
 _client: anthropic.Anthropic | None = None
 
 
+def _make_client() -> anthropic.Anthropic:
+    """Prefer ANTHROPIC_AUTH_TOKEN (OAuth bearer) over ANTHROPIC_API_KEY."""
+    auth_token = os.getenv("ANTHROPIC_AUTH_TOKEN")
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if auth_token:
+        return anthropic.Anthropic(auth_token=auth_token)
+    if api_key:
+        return anthropic.Anthropic(api_key=api_key)
+    raise RuntimeError("Set ANTHROPIC_AUTH_TOKEN (OAuth) or ANTHROPIC_API_KEY in environment")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _client
     db.init_db()
-    _client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    _client = _make_client()
     yield
 
 
