@@ -226,7 +226,7 @@ Nango is now up, migrated its schema, and listening on :3003 (proxied internally
 stable for 60s+ post-recreate; Nextcloud's Postgres data survived the `db` container recreation
 (same-name/same-hash env change triggered it too) since it's on the persistent `db_data` volume.
 
-### Phase 5 — Voice (built 2026-07-01, blocked on API keys)
+### Phase 5 — Voice (DONE 2026-07-01)
 Per `docs/runbook-phase5.md`: `POST /voice` (audio → Groq Whisper STT → the exact same
 `agent_reply()` tool-use loop `/chat` uses → ElevenLabs TTS → audio out), sharing `session_id`
 so a thread started by text continues by voice — the whole point of the design, per the
@@ -239,11 +239,16 @@ hold button, `MediaRecorder`, plays the reply, remembers `session_id` in `localS
 `scripts/voice-hotkey.sh` (Mac/Linux hold-to-talk via `sox`+`curl`), a Voice card on the hub
 with live status.
 
-**Blocked**: `GROQ_API_KEY` and `ELEVENLABS_API_KEY` are BYO keys, not yet in `.env` — both have
-fast free-tier signups (groq.com, elevenlabs.io). Verified the failure mode is clean (503,
-clear message) rather than a crash. Everything else — endpoint wiring, session continuity,
-header-encoding for transcript/reply text (fixed a real bug: raw text in HTTP headers breaks on
-newlines/non-ASCII, now percent-encoded) — is built and ready the moment those two keys land.
+**Both API keys wired and verified live.** `GROQ_API_KEY`: hit a Mullvad-VPN block on Groq's
+console signup page (same "SaaS blocks VPN exit IPs" class as tonight's other findings) —
+disconnected Mullvad on the Fedora box directly via CLI to unblock it. `ELEVENLABS_API_KEY`:
+hit a real ElevenLabs platform restriction — free-tier accounts can't use shared/library voices
+via the API (`402 paid_plan_required`), only their own voices or a plan upgrade; resolved on
+Jake's account (exact mechanism unconfirmed — retested after he adjusted something and it
+started working). Full pipeline verified end-to-end with real synthesized speech input: STT
+correctly transcribed "What's on my Daily Digest today?", the agent read the actual digest via
+its vault tools and replied with real content, ElevenLabs returned a real ~450KB MP3. All test
+artifacts cleaned up afterward. `/api/status` confirms `voice: up`.
 
 Phase 6 (productize — Packer golden image, idempotent bootstrap/customize, clean-room dry-run
 deploy) is explicitly **not** started and not relevant right now — it's about packaging this
@@ -293,8 +298,8 @@ ssh -i ~/.ssh/aios aios@178.156.169.121 "cd ~/personal-ai-os/platform && docker 
 **Next real work item**: See `docs/roadmap-full-os.md` for the full "enterprise OS" plan and
 exact blockers. Short version: chat + vault second brain (done), intake capture + auto-draft
 loop (done), CRM/BI/workflow apps deployed (done — Metabase/n8n logins set up 2026-07-01, Twenty
-CRM login still needs Jake's one-time visit), voice (built, blocked on `GROQ_API_KEY` +
-`ELEVENLABS_API_KEY`). Everything past that — ad campaign tracking, jacobdart.com lead capture,
+CRM login still needs Jake's one-time visit), **voice (DONE 2026-07-01, verified end-to-end)**.
+Everything past that — ad campaign tracking, jacobdart.com lead capture,
 real calendar writes, Otter/tldv re-auth — is blocked on Jake providing credentials/OAuth
 consent/one code change in a different repo; itemized with next steps in the roadmap doc.
 Phase 6 (productize) is explicitly out of scope for now — not relevant until this is being
