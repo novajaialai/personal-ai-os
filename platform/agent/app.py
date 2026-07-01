@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import anthropic
+import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
@@ -132,17 +133,46 @@ class ChatResponse(BaseModel):
 
 
 _UI = Path(__file__).parent / "ui.html"
+_HUB = Path(__file__).parent / "hub.html"
 
 
-@app.get("/", response_class=HTMLResponse)
 @app.get("/chat", response_class=HTMLResponse)
 def ui():
     return _UI.read_text()
 
 
+@app.get("/", response_class=HTMLResponse)
+def hub():
+    return _HUB.read_text()
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "model": MODEL}
+
+
+# Reachable by Docker Compose service name from inside the network — see
+# platform/docker-compose.yml for the service list these correspond to.
+_STATUS_TARGETS = {
+    "chat": "http://127.0.0.1:3000/health",
+    "nextcloud": "http://nextcloud:80/status.php",
+    "crm": "http://twenty-server:3000/healthz",
+    "bi": "http://metabase:3000/api/health",
+    "flows": "http://n8n:5678/healthz",
+}
+
+
+@app.get("/api/status")
+def api_status():
+    out = {}
+    with httpx.Client(timeout=1.5) as client:
+        for name, url in _STATUS_TARGETS.items():
+            try:
+                r = client.get(url)
+                out[name] = "up" if r.status_code < 500 else "down"
+            except httpx.HTTPError:
+                out[name] = "down"
+    return out
 
 
 def _digest_to_html(md: str) -> str:
