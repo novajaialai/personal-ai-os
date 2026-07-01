@@ -119,6 +119,7 @@ services:
       WEBHOOK_URL: https://${N8N_HOSTNAME}/
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?set N8N_ENCRYPTION_KEY}
       GENERIC_TIMEZONE: ${TZ:-America/Denver}
+      N8N_DIAGNOSTICS_ENABLED: "false"
     volumes:
       - n8n_data:/home/node/.n8n
     ports:
