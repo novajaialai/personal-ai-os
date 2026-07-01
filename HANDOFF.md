@@ -68,14 +68,26 @@ The systemd service tunnels `localhost:8443 → 178.156.169.121:8080` (Caddy) vi
 | 2 — Nextcloud vault | ✅ Done | Nextcloud running, Obsidian vault sync config ready |
 | 3 — Agent core | ✅ Done | FastAPI + Claude sonnet-4-6, SQLite sessions, vault reads |
 | Tailscale TCP from Fedora | ✅ Done | `ip rule` priority race + nftables gaps fixed; `ts-mullvad-reconcile.timer` makes it durable across reconnects |
+| Phase 3 — onboarding interview | ✅ Done 2026-07-01 | `/vault/context/` filled — see below |
 
 ### Phase 2 Remaining
 - Install Nextcloud desktop sync on Mac
 - Point Obsidian at the synced vault folder
 
-### Phase 3 Remaining  
-- Run onboarding interview to fill `/vault/context/` files (about-me.md, working-style.md, brand-voice.md, voc.md)
-- The agent currently falls back to empty strings for missing context files
+### Phase 3 Remaining
+- None. Onboarding interview complete (see "Onboarding interview" below).
+
+**Onboarding interview (2026-07-01):** No `onboarding-interview` skill exists yet (`skills/`
+only has a README describing it) — ran the interview directly instead. Also found and fixed a
+case-sensitivity bug: `agent/vault.py` reads `/vault/context/` (lowercase), but the vault only
+had an empty `/srv/aios/vault/CONTEXT/` (uppercase) — removed the stale empty dir and created
+the correct lowercase one. Wrote `about-me.md`, `working-style.md`, `brand-voice.md` with
+drafted content (from known context, confirmed with Jake before writing). `voc.md` left
+intentionally blank — it captures real customer-quote language for client-facing work, and none
+has been captured yet; do not fabricate it. Verified live via
+`docker exec platform-agent-1 cat /vault/context/about-me.md` — the bind mount picks up changes
+without a container restart. The agent no longer falls back to `(not yet set)` for these three
+files.
 
 ### Phase 4 (Not started)
 - Intake service (Recall.ai/Otter webhooks)
@@ -150,4 +162,4 @@ ip rule show | grep 100.64                          # our rule should sit one pr
 ssh -i ~/.ssh/aios aios@178.156.169.121 "cd ~/personal-ai-os/platform && docker compose --env-file ../.env ps"
 ```
 
-**Next real work item**: Phase 3 remaining — run the onboarding interview to fill `/vault/context/` files (about-me.md, working-style.md, brand-voice.md, voc.md); the agent currently falls back to empty strings for missing context files.
+**Next real work item**: Phase 2 remaining — install Nextcloud desktop sync on Mac and point Obsidian at the synced vault folder. Phase 3 is fully done; Phase 4 (intake service, MCP connectors, personas) is next after that.
