@@ -54,39 +54,77 @@ services:
   # rather than a Caddy subpath — these apps assume they own their domain root and don't
   # support being reverse-proxied under a prefix cleanly (see the Nextcloud /files lesson
   # in HANDOFF.md 2026-07-01).
-  mariadb:
-    image: mariadb:11
+  # CRM: Twenty (github.com/twentyhq/twenty) — needs its own Postgres (pgvector + pg_graphql,
+  # NOT the plain postgres:16 image used elsewhere in this stack — self-hosters who reuse a
+  # vanilla Postgres hit "extension vector is unavailable") and its own Redis.
+  twenty-db:
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
-      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?set MARIADB_ROOT_PASSWORD}
-      MARIADB_DATABASE: espocrm
-      MARIADB_USER: espocrm
-      MARIADB_PASSWORD: ${ESPO_DB_PASSWORD:?set ESPO_DB_PASSWORD}
+      POSTGRES_DB: default
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${TWENTY_PG_PASSWORD:?set TWENTY_PG_PASSWORD}
     volumes:
-      - mariadb_data:/var/lib/mysql
+      - twenty_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U postgres -h localhost -d postgres"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
-  espocrm:
-    image: espocrm/espocrm:latest
+  twenty-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  twenty-server:
+    image: twentycrm/twenty:latest
     restart: unless-stopped
     environment:
-      ESPOCRM_DATABASE_PLATFORM: Mysql
-      ESPOCRM_DATABASE_HOST: mariadb
-      ESPOCRM_DATABASE_USER: espocrm
-      ESPOCRM_DATABASE_PASSWORD: ${ESPO_DB_PASSWORD}
-      ESPOCRM_ADMIN_USERNAME: admin
-      ESPOCRM_ADMIN_PASSWORD: ${ESPO_ADMIN_PASSWORD:?set ESPO_ADMIN_PASSWORD}
-      ESPOCRM_SITE_URL: ${ESPOCRM_SITE_URL}
+      NODE_PORT: 3000
+      PG_DATABASE_URL: postgres://postgres:${TWENTY_PG_PASSWORD}@twenty-db:5432/default
+      SERVER_URL: ${TWENTY_SERVER_URL}
+      REDIS_URL: redis://twenty-redis:6379
+      STORAGE_TYPE: local
+      ENCRYPTION_KEY: ${TWENTY_ENCRYPTION_KEY:?set TWENTY_ENCRYPTION_KEY}
     volumes:
-      - espocrm_data:/var/www/html
+      - twenty_server_data:/app/packages/twenty-server/.local-storage
     ports:
-      - "127.0.0.1:8081:80"
+      - "127.0.0.1:8081:3000"
     depends_on:
-      mariadb:
+      twenty-db:
+        condition: service_healthy
+      twenty-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:3000/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  twenty-worker:
+    image: twentycrm/twenty:latest
+    restart: unless-stopped
+    command: ["yarn", "worker:prod"]
+    environment:
+      PG_DATABASE_URL: postgres://postgres:${TWENTY_PG_PASSWORD}@twenty-db:5432/default
+      SERVER_URL: ${TWENTY_SERVER_URL}
+      REDIS_URL: redis://twenty-redis:6379
+      STORAGE_TYPE: local
+      ENCRYPTION_KEY: ${TWENTY_ENCRYPTION_KEY}
+      DISABLE_DB_MIGRATIONS: "true"
+      DISABLE_CRON_JOBS_REGISTRATION: "true"
+    volumes:
+      - twenty_server_data:/app/packages/twenty-server/.local-storage
+    depends_on:
+      twenty-db:
+        condition: service_healthy
+      twenty-server:
         condition: service_healthy
 
   metabase:
@@ -131,6 +169,6 @@ volumes:
   agent_state:
   nextcloud_data:
   db_data:
-  mariadb_data:
-  espocrm_data:
+  twenty_db_data:
+  twenty_server_data:
   n8n_data:
