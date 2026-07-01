@@ -9,12 +9,86 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 import db
+import vault
 from prompts import build_system_prompt
 
 MODEL = os.getenv("AGENT_MODEL", "claude-sonnet-4-6")
 MAX_TOKENS = int(os.getenv("AGENT_MAX_TOKENS", "4096"))
+MAX_TOOL_ROUNDS = 8
 
 _client: anthropic.Anthropic | None = None
+
+TOOLS = [
+    {
+        "name": "list_notes",
+        "description": "List every markdown note in the vault (vault-relative paths).",
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "search_notes",
+        "description": "Full-text search across all notes in the vault. Returns matching file paths, line numbers, and snippets.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"query": {"type": "string", "description": "Search term or phrase"}},
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "read_note",
+        "description": "Read the full contents of one note by its vault-relative path (e.g. 'Projects/foo.md').",
+        "input_schema": {
+            "type": "object",
+            "properties": {"path": {"type": "string"}},
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "write_note",
+        "description": "Create a new note or overwrite an existing one at the given vault-relative path.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "e.g. 'Projects/idea.md'"},
+                "content": {"type": "string"},
+            },
+            "required": ["path", "content"],
+        },
+    },
+    {
+        "name": "append_note",
+        "description": "Append a new timestamped entry to an existing note (creating it if it doesn't exist yet). Use this for running logs / journals rather than write_note, which overwrites.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "content": {"type": "string"},
+            },
+            "required": ["path", "content"],
+        },
+    },
+]
+
+
+def _run_tool(name: str, tool_input: dict) -> str:
+    try:
+        if name == "list_notes":
+            return "\n".join(vault.list_notes()) or "(vault is empty)"
+        if name == "search_notes":
+            results = vault.search_notes(tool_input["query"])
+            if not results:
+                return "no matches"
+            return "\n".join(f"{r['path']}:{r['line']}: {r['text']}" for r in results)
+        if name == "read_note":
+            return vault.read_note(tool_input["path"])
+        if name == "write_note":
+            path = vault.write_note(tool_input["path"], tool_input["content"])
+            return f"wrote {path}"
+        if name == "append_note":
+            path = vault.append_note(tool_input["path"], tool_input["content"])
+            return f"appended to {path}"
+        return f"unknown tool: {name}"
+    except (vault.VaultPathError, FileNotFoundError) as e:
+        return f"error: {e}"
 
 
 def _make_client() -> anthropic.Anthropic:
@@ -70,6 +144,10 @@ def health():
     return {"status": "ok", "model": MODEL}
 
 
+def _extract_text(content_blocks) -> str:
+    return "".join(b.text for b in content_blocks if b.type == "text")
+
+
 @app.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
     # Resolve or create session
@@ -83,20 +161,37 @@ def chat(req: ChatRequest):
     messages = [{"role": m["role"], "content": m["content"]} for m in history]
     messages.append({"role": "user", "content": req.message})
 
-    # Call Claude
+    # Tool-use loop: keep going while Claude wants to call tools, up to a cap
     try:
-        resp = _client.messages.create(
-            model=MODEL,
-            max_tokens=MAX_TOKENS,
-            system=build_system_prompt(),
-            messages=messages,
-        )
+        for _ in range(MAX_TOOL_ROUNDS):
+            resp = _client.messages.create(
+                model=MODEL,
+                max_tokens=MAX_TOKENS,
+                system=build_system_prompt(),
+                messages=messages,
+                tools=TOOLS,
+            )
+            if resp.stop_reason != "tool_use":
+                reply = _extract_text(resp.content)
+                break
+
+            messages.append({"role": "assistant", "content": resp.content})
+            tool_results = []
+            for block in resp.content:
+                if block.type != "tool_use":
+                    continue
+                result = _run_tool(block.name, block.input)
+                tool_results.append(
+                    {"type": "tool_result", "tool_use_id": block.id, "content": result}
+                )
+            messages.append({"role": "user", "content": tool_results})
+        else:
+            reply = "(hit tool-use round limit — try a more specific request)"
     except anthropic.APIError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
-    reply = resp.content[0].text
-
-    # Persist
+    # Persist (only the original user message and final text reply — not the
+    # intermediate tool_use/tool_result blocks, which are re-derivable per turn)
     db.save_message(sid, "user", req.message)
     db.save_message(sid, "assistant", reply)
     db.touch_session(sid)

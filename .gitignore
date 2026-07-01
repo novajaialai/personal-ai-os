@@ -14,3 +14,4 @@ tenant.yaml
 
 # Local stack inventory snapshots (personal, not template content)
 docs/stack-inventory/
+__pycache__/
