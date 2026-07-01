@@ -147,7 +147,7 @@ ip rule show | grep 100.64                          # our rule should sit one pr
 
 **VPS quick checks**:
 ```bash
-ssh -i ~/.ssh/aios aios@178.156.169.121 "docker compose -f /srv/aios/platform/docker-compose.yml ps"
+ssh -i ~/.ssh/aios aios@178.156.169.121 "cd ~/personal-ai-os/platform && docker compose --env-file ../.env ps"
 ```
 
 **Next real work item**: Phase 3 remaining — run the onboarding interview to fill `/vault/context/` files (about-me.md, working-style.md, brand-voice.md, voc.md); the agent currently falls back to empty strings for missing context files.
