@@ -140,7 +140,25 @@ has been captured yet; do not fabricate it. Verified live via
 without a container restart. The agent no longer falls back to `(not yet set)` for these three
 files.
 
-### Phase 4 (Not started)
+### Phase 4 (Started 2026-07-01: vault tool use)
+- **Agent vault tool use — DONE 2026-07-01.** The agent was a plain chat completion wrapper
+  (`app.py` called `client.messages.create()` with zero tool use); `vault.py`'s
+  `write_to_inbox()` existed but was never invoked, and the system prompt's claimed
+  capabilities were aspirational. Jake wants the agent to actually function as a
+  Karpathy-style second brain — plain markdown, agent reads/writes/searches directly, no
+  vector DB, and critically **Jake never opens Obsidian himself; chat is the only interface**.
+  Built: `vault.py` gained `list_notes()`, `search_notes()` (grep-based), `read_note()`,
+  `write_note()`, `append_note()` (timestamped log entries), all path-guarded to stay inside
+  `/vault`. `app.py` now runs a real Claude tool-use loop (up to `MAX_TOOL_ROUNDS=8`) instead
+  of a single completion call. `prompts.py` rewritten to describe actual tools instead of
+  aspirational prose. No infra changes needed — vault was already bind-mounted read/write into
+  the agent container. Verified end-to-end in production: `list_notes`+`read_note` correctly
+  read real context files; `write_note`/`append_note` created a real timestamped file on disk
+  (confirmed via `docker exec ... cat`, then removed — it was test content, not real); `search_notes`
+  found it via grep. The Nextcloud↔Mac Obsidian desktop sync from earlier today still runs but
+  is no longer part of the design — it was Jake's original ask, but he decided he doesn't want
+  to manage/interact with Obsidian at all, so it's now just idle infrastructure (harmless, not
+  worth ripping out).
 - Intake service (Recall.ai/Otter webhooks)
 - MCP connectors (Gmail/Calendar via Nango)
 - Personas / specialized agents
@@ -213,8 +231,14 @@ ip rule show | grep 100.64                          # our rule should sit one pr
 ssh -i ~/.ssh/aios aios@178.156.169.121 "cd ~/personal-ai-os/platform && docker compose --env-file ../.env ps"
 ```
 
-**Next real work item**: Phase 2 and 3 are both fully done. Phase 4 (intake service, MCP
-connectors, personas) is next.
+**Next real work item**: Phases 2 and 3 are fully done. Phase 4's vault tool use is done
+(agent now has real list/search/read/write/append tools over `/vault` — see Phase 4 section
+above). Remaining Phase 4 work: intake service (Recall.ai/Otter webhooks → normalized
+transcripts the agent can search/act on), MCP connectors (Gmail/Calendar via Nango, currently
+idle), and personas/mode-specific tool routing. **Open decision, not yet resolved**: whether to
+keep Tailscale-only access for everything, or move to a hybrid model (Tailscale for
+SSH/admin, public HTTPS+auth for the chat UI) — raised by Jake, deliberately not bundled into
+any of the above, needs its own planning session.
 
 **Known follow-up (not blocking)**: no persistent fix exists yet for the Mac's Mullvad
 DNS-clobbering or firewall-blocking-CGNAT issues (see Phase 2 section above) — unlike Fedora's
