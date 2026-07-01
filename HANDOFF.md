@@ -65,15 +65,24 @@ The systemd service tunnels `localhost:8443 → 178.156.169.121:8080` (Caddy) vi
 |-------|--------|-------|
 | 0 — VPS provision | ✅ Done | Hetzner CPX41, cloud-init, Tailscale |
 | 1 — Docker stack | ✅ Done | Caddy, Nextcloud, agent, Postgres |
-| 2 — Nextcloud vault | ✅ Actually done 2026-07-01 | Was marked done prematurely — vault wasn't really exposed. See below. |
+| 2 — Nextcloud vault | ✅ Actually done 2026-07-01 | Was marked done prematurely — vault wasn't exposed, then fixed, synced, and Obsidian confirmed pointed at it. See below. |
 | 3 — Agent core | ✅ Done | FastAPI + Claude sonnet-4-6, SQLite sessions, vault reads |
 | Tailscale TCP from Fedora | ✅ Done | `ip rule` priority race + nftables gaps fixed; `ts-mullvad-reconcile.timer` makes it durable across reconnects |
 | Phase 3 — onboarding interview | ✅ Done 2026-07-01 | `/vault/context/` filled — see below |
 
 ### Phase 2 Remaining
-- Nextcloud desktop sync installed on Mac and confirmed pulling real `Vault/` content
-  (2026-07-01). Remaining: point Obsidian at the synced local folder once Jake confirms the
-  local path he chose in the sync wizard.
+- None. Nextcloud desktop sync installed on Mac, confirmed pulling real `Vault/` content, and
+  Obsidian confirmed showing that vault (2026-07-01). Obsidian was pointed at
+  `~/Library/CloudStorage/Nextcloud-jake@aios-jake-1.tail828365.ts.net/Vault` via
+  `obsidian://open?path=...` (URI scheme, percent-encoded for the `@`) after directly editing
+  `obsidian.json` didn't take effect on its own. Verification was done via a local Claude
+  Code/Cowork instance running ON the Mac (with GUI/computer_use access there) — remote
+  diagnosis from Fedora over SSH hit a real macOS wall: SSH sessions run in a separate
+  non-GUI security session, so `screencapture` and any WindowServer-attached API fail
+  regardless of TCC permissions granted, and `~/Desktop`/`~/Library/CloudStorage/.../Vault`
+  contents are also TCC-protected from `sshd`-spawned processes. Worth remembering for future
+  Mac-side debugging: don't fight SSH-based screen/file inspection past the TCC wall — hand off
+  to a local agent instead.
 
 **Nextcloud vault exposure fix (2026-07-01):** Setting up Mac desktop sync surfaced four
 separate, real bugs — Phase 2 had been marked done without ever testing an actual client
@@ -204,9 +213,8 @@ ip rule show | grep 100.64                          # our rule should sit one pr
 ssh -i ~/.ssh/aios aios@178.156.169.121 "cd ~/personal-ai-os/platform && docker compose --env-file ../.env ps"
 ```
 
-**Next real work item**: Point Obsidian at the Mac's synced `Vault/` folder (path TBD — ask
-Jake what he chose in the Nextcloud wizard). After that, Phase 2 and 3 are both fully done;
-Phase 4 (intake service, MCP connectors, personas) is next.
+**Next real work item**: Phase 2 and 3 are both fully done. Phase 4 (intake service, MCP
+connectors, personas) is next.
 
 **Known follow-up (not blocking)**: no persistent fix exists yet for the Mac's Mullvad
 DNS-clobbering or firewall-blocking-CGNAT issues (see Phase 2 section above) — unlike Fedora's
