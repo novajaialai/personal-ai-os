@@ -5,13 +5,14 @@ from pathlib import Path
 
 import anthropic
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel
 
 import db
 import vault
+import voice
 from prompts import build_system_prompt
 
 MODEL = os.getenv("AGENT_MODEL", "claude-sonnet-4-6")
@@ -172,6 +173,8 @@ def api_status():
                 out[name] = "up" if r.status_code < 500 else "down"
             except httpx.HTTPError:
                 out[name] = "down"
+    # Voice isn't a service to ping — it's "up" only once both provider keys exist.
+    out["voice"] = "up" if (voice.GROQ_API_KEY and voice.ELEVENLABS_API_KEY) else "down"
     return out
 
 
@@ -216,18 +219,16 @@ def _extract_text(content_blocks) -> str:
     return "".join(b.text for b in content_blocks if b.type == "text")
 
 
-@app.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest):
-    # Resolve or create session
-    if req.session_id and db.session_exists(req.session_id):
-        sid = req.session_id
+def agent_reply(message: str, session_id: str | None, mode: str = "second_brain") -> tuple[str, str]:
+    """The one agent loop — chat and voice both call this. Returns (session_id, reply)."""
+    if session_id and db.session_exists(session_id):
+        sid = session_id
     else:
-        sid = db.create_session(title=req.message[:60], mode=req.mode)
+        sid = db.create_session(title=message[:60], mode=mode)
 
-    # Build message history
     history = db.get_messages(sid, limit=20)
     messages = [{"role": m["role"], "content": m["content"]} for m in history]
-    messages.append({"role": "user", "content": req.message})
+    messages.append({"role": "user", "content": message})
 
     # Tool-use loop: keep going while Claude wants to call tools, up to a cap
     try:
@@ -260,15 +261,69 @@ def chat(req: ChatRequest):
 
     # Persist (only the original user message and final text reply — not the
     # intermediate tool_use/tool_result blocks, which are re-derivable per turn)
-    db.save_message(sid, "user", req.message)
+    db.save_message(sid, "user", message)
     db.save_message(sid, "assistant", reply)
     db.touch_session(sid)
 
-    # Update title after first exchange if still just a snippet
     if len(history) == 0:
-        db.update_session_title(sid, req.message[:60])
+        db.update_session_title(sid, message[:60])
 
+    return sid, reply
+
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(req: ChatRequest):
+    sid, reply = agent_reply(req.message, req.session_id, req.mode)
     return ChatResponse(session_id=sid, reply=reply)
+
+
+_VOICE_UI = Path(__file__).parent / "voice.html"
+
+
+@app.get("/voice", response_class=HTMLResponse)
+def voice_page():
+    return _VOICE_UI.read_text()
+
+
+@app.post("/voice")
+async def voice_endpoint(
+    audio: UploadFile = File(...),
+    session_id: str | None = Form(None),
+    mode: str = Form("second_brain"),
+):
+    """Push-to-talk voice loop (Phase 5): audio in -> STT -> same agent_reply()
+    used by /chat -> TTS -> audio out. Same session_id continues a thread
+    started by text, per the shared-memory design in runbook-phase5.md."""
+    audio_bytes = await audio.read()
+    try:
+        text = voice.transcribe(audio_bytes, filename=audio.filename or "audio.webm")
+    except voice.VoiceNotConfigured as e:
+        raise HTTPException(status_code=503, detail=f"voice not configured: {e}")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=502, detail=f"STT failed: {e}")
+
+    sid, reply = agent_reply(text, session_id, mode)
+
+    try:
+        audio_reply = voice.synthesize(reply)
+    except voice.VoiceNotConfigured as e:
+        raise HTTPException(status_code=503, detail=f"voice not configured: {e}")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=502, detail=f"TTS failed: {e}")
+
+    # Header values must be ASCII/single-line — percent-encode free text (transcripts
+    # and replies routinely contain newlines, emoji, smart quotes).
+    from urllib.parse import quote
+
+    return Response(
+        content=audio_reply,
+        media_type="audio/mpeg",
+        headers={
+            "X-Session-Id": sid,
+            "X-Transcript": quote(text),
+            "X-Reply-Text": quote(reply),
+        },
+    )
 
 
 @app.get("/sessions")

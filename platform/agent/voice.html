@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>AIOS — Voice</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f0f0f;
+    color: #e8e8e8;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    padding: 24px;
+    user-select: none;
+  }
+
+  h1 { font-size: 14px; font-weight: 600; letter-spacing: 0.06em; color: #666; text-transform: uppercase; position: absolute; top: 20px; }
+
+  #talk-btn {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    border: 2px solid #2a2a2a;
+    background: #131313;
+    color: #e8e8e8;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+  }
+  #talk-btn.recording {
+    background: #c0392b;
+    border-color: #e74c3c;
+    transform: scale(1.05);
+    box-shadow: 0 0 30px rgba(231, 76, 60, 0.4);
+  }
+  #talk-btn.processing {
+    background: #1f1f2e;
+    border-color: #4a4ae0;
+  }
+
+  #status {
+    font-size: 13px;
+    color: #666;
+    text-align: center;
+    max-width: 320px;
+    min-height: 40px;
+  }
+
+  #transcript, #reply {
+    font-size: 14px;
+    color: #999;
+    text-align: center;
+    max-width: 400px;
+    line-height: 1.5;
+  }
+  #reply { color: #ddd; }
+
+  #error {
+    color: #e74c3c;
+    font-size: 13px;
+    text-align: center;
+    max-width: 340px;
+  }
+</style>
+</head>
+<body>
+  <h1>Push to talk</h1>
+  <button id="talk-btn">Hold to talk</button>
+  <div id="status">Hold the button and speak</div>
+  <div id="transcript"></div>
+  <div id="reply"></div>
+  <div id="error"></div>
+
+  <script>
+    const btn = document.getElementById('talk-btn');
+    const statusEl = document.getElementById('status');
+    const transcriptEl = document.getElementById('transcript');
+    const replyEl = document.getElementById('reply');
+    const errorEl = document.getElementById('error');
+
+    let mediaRecorder, chunks = [], stream;
+    const SESSION_KEY = 'aios-voice-session';
+
+    function getSessionId() { return localStorage.getItem(SESSION_KEY); }
+    function setSessionId(id) { if (id) localStorage.setItem(SESSION_KEY, id); }
+
+    async function startRecording() {
+      errorEl.textContent = '';
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e) {
+        errorEl.textContent = 'Microphone access denied.';
+        return;
+      }
+      chunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+      mediaRecorder.start();
+      btn.classList.add('recording');
+      btn.textContent = 'Listening…';
+      statusEl.textContent = 'Release to send';
+    }
+
+    async function stopRecording() {
+      if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+      btn.classList.remove('recording');
+      btn.classList.add('processing');
+      btn.textContent = 'Thinking…';
+      statusEl.textContent = 'Transcribing and replying…';
+
+      const stopped = new Promise((resolve) => { mediaRecorder.onstop = resolve; });
+      mediaRecorder.stop();
+      stream.getTracks().forEach((t) => t.stop());
+      await stopped;
+
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const form = new FormData();
+      form.append('audio', blob, 'audio.webm');
+      const sid = getSessionId();
+      if (sid) form.append('session_id', sid);
+
+      try {
+        const res = await fetch('/voice', { method: 'POST', body: form });
+        if (!res.ok) {
+          const detail = await res.text();
+          throw new Error(detail || res.statusText);
+        }
+        setSessionId(res.headers.get('X-Session-Id'));
+        transcriptEl.textContent = 'You: ' + decodeURIComponent(res.headers.get('X-Transcript') || '');
+        replyEl.textContent = decodeURIComponent(res.headers.get('X-Reply-Text') || '');
+        const audioBlob = await res.blob();
+        const url = URL.createObjectURL(audioBlob);
+        const player = new Audio(url);
+        statusEl.textContent = 'Playing reply…';
+        player.play();
+        player.onended = () => { statusEl.textContent = 'Hold the button and speak'; };
+      } catch (e) {
+        errorEl.textContent = 'Error: ' + e.message;
+        statusEl.textContent = 'Hold the button and speak';
+      } finally {
+        btn.classList.remove('processing');
+        btn.textContent = 'Hold to talk';
+      }
+    }
+
+    btn.addEventListener('mousedown', startRecording);
+    btn.addEventListener('mouseup', stopRecording);
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); });
+    btn.addEventListener('touchend', (e) => { e.preventDefault(); stopRecording(); });
+  </script>
+</body>
+</html>

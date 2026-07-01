@@ -144,6 +144,14 @@
       <p>Ask, capture, search — the main interface. Everything else here is a supporting tool.</p>
     </a>
 
+    <div class="card-grid" style="margin-bottom: 32px;">
+      <a class="service-card" href="/voice">
+        <div class="top-row"><span class="name">Voice</span><span class="dot" id="dot-voice"></span></div>
+        <div class="title">Push to talk</div>
+        <div class="desc">Same brain, spoken</div>
+      </a>
+    </div>
+
     <div class="section-label">
       <span>Today's digest</span>
       <a href="/digest">Full page →</a>
@@ -199,7 +207,7 @@
       try {
         const res = await fetch('/api/status', { cache: 'no-store' });
         const data = await res.json();
-        const map = { crm: 'dot-crm', bi: 'dot-bi', flows: 'dot-flows', nextcloud: 'dot-nextcloud' };
+        const map = { crm: 'dot-crm', bi: 'dot-bi', flows: 'dot-flows', nextcloud: 'dot-nextcloud', voice: 'dot-voice' };
         let allUp = true;
         for (const [key, elId] of Object.entries(map)) {
           const dot = document.getElementById(elId);
