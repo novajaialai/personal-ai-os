@@ -141,6 +141,25 @@ without a container restart. The agent no longer falls back to `(not yet set)` f
 files.
 
 ### Phase 4 (Started 2026-07-01: vault tool use)
+- **Metabase admin login fix + Twenty CRM data source — DONE 2026-07-01.** Jake set a Metabase
+  admin password during onboarding, then lost it (Google Password Manager didn't save it).
+  This build's `reset-password` CLI tool (`java -jar metabase.jar reset-password <email>`) is
+  reproducibly broken — reset it 3 separate times (once with a full container restart in
+  between to rule out in-memory caching) and every generated password failed to authenticate.
+  Manually reverse-engineering the bcrypt(salt+password) scheme from `core_user.password` /
+  `password_salt` also failed (tried both salt+pw and pw+salt orderings, both `$2a$`/`$2b$`
+  bcrypt variants). Root-caused as a genuine bug in this specific build (very recent —
+  migration filenames reference preview MCP features dated April-June 2026). Fix: dropped and
+  recreated the `metabase` Postgres database (nothing was in it yet — zero data loss), let
+  Metabase re-run its first-boot setup fresh, and completed that setup via its own
+  `POST /api/setup` REST endpoint with a password Jake controls
+  (`yakobdart@gmail.com` / `aios-metabase-2026` — **he should change this**, since I set it and
+  therefore know it). Also recreated the Twenty CRM database connection (host `twenty-db`, db
+  `default`, user `postgres`) via `POST /api/database` — confirmed `initial_sync_status:
+  complete`. Earlier UI attempts at this same connection also failed with "password incorrect",
+  root-caused separately via Metabase's own logs to a leading space in the username field
+  (` postgres` vs `postgres`) — a real, different bug from the account-login issue above, both
+  hit in the same session.
 - **Agent vault tool use — DONE 2026-07-01.** The agent was a plain chat completion wrapper
   (`app.py` called `client.messages.create()` with zero tool use); `vault.py`'s
   `write_to_inbox()` existed but was never invoked, and the system prompt's claimed
