@@ -1,0 +1,8 @@
+[Unit]
+Description=AIOS proactive daily briefing
+After=docker.service
+
+[Service]
+Type=oneshot
+User=aios
+ExecStart=/home/aios/personal-ai-os/scripts/aios-daily-briefing.sh

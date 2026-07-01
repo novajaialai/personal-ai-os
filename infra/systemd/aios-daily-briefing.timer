@@ -1,0 +1,9 @@
+[Unit]
+Description=Run AIOS daily briefing every morning
+
+[Timer]
+OnCalendar=*-*-* 07:03:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
