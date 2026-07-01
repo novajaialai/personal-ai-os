@@ -49,8 +49,87 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
 
+  # ---- Business OS layer: CRM / BI / workflow spine ----
+  # Each exposed on its own Tailscale-served HTTPS port (see docs/tailscale-serve-ports.md)
+  # rather than a Caddy subpath — these apps assume they own their domain root and don't
+  # support being reverse-proxied under a prefix cleanly (see the Nextcloud /files lesson
+  # in HANDOFF.md 2026-07-01).
+  mariadb:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?set MARIADB_ROOT_PASSWORD}
+      MARIADB_DATABASE: espocrm
+      MARIADB_USER: espocrm
+      MARIADB_PASSWORD: ${ESPO_DB_PASSWORD:?set ESPO_DB_PASSWORD}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  espocrm:
+    image: espocrm/espocrm:latest
+    restart: unless-stopped
+    environment:
+      ESPOCRM_DATABASE_PLATFORM: Mysql
+      ESPOCRM_DATABASE_HOST: mariadb
+      ESPOCRM_DATABASE_USER: espocrm
+      ESPOCRM_DATABASE_PASSWORD: ${ESPO_DB_PASSWORD}
+      ESPOCRM_ADMIN_USERNAME: admin
+      ESPOCRM_ADMIN_PASSWORD: ${ESPO_ADMIN_PASSWORD:?set ESPO_ADMIN_PASSWORD}
+      ESPOCRM_SITE_URL: ${ESPOCRM_SITE_URL}
+    volumes:
+      - espocrm_data:/var/www/html
+    ports:
+      - "127.0.0.1:8081:80"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+  metabase:
+    image: metabase/metabase:latest
+    restart: unless-stopped
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: 5432
+      MB_DB_USER: ${POSTGRES_USER}
+      MB_DB_PASS: ${POSTGRES_PASSWORD}
+      MB_DB_HOST: db
+      MB_SITE_URL: ${METABASE_SITE_URL}
+    ports:
+      - "127.0.0.1:8082:3000"
+    depends_on: [db]
+
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_HOST: db
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      N8N_HOST: ${N8N_HOSTNAME}
+      N8N_PROTOCOL: https
+      N8N_PORT: 5678
+      WEBHOOK_URL: https://${N8N_HOSTNAME}/
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?set N8N_ENCRYPTION_KEY}
+      GENERIC_TIMEZONE: ${TZ:-America/Denver}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    ports:
+      - "127.0.0.1:8083:5678"
+    depends_on: [db]
+
 volumes:
   caddy_data:
   agent_state:
   nextcloud_data:
   db_data:
+  mariadb_data:
+  espocrm_data:
+  n8n_data:

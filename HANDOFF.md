@@ -159,8 +159,25 @@ files.
   is no longer part of the design — it was Jake's original ask, but he decided he doesn't want
   to manage/interact with Obsidian at all, so it's now just idle infrastructure (harmless, not
   worth ripping out).
-- Intake service (Recall.ai/Otter webhooks)
-- MCP connectors (Gmail/Calendar via Nango)
+- **Intake capture layer + Business OS services — DONE 2026-07-01.** Full write-up:
+  `docs/roadmap-full-os.md`. Summary: built the real `platform/intake` service (was a stub —
+  README + schema only, no code) with `POST /intake/lead` and `POST /intake/transcript`,
+  bearer-token-gated (`INTAKE_SHARED_SECRET`), both normalizing input → vault note → pinging
+  the agent to extract action items and draft (never send) follow-ups under
+  `Inbox/approvals/`. Verified end-to-end with test data (then cleaned up — was fabricated
+  content, not real). Also ported EspoCRM/Metabase/n8n from the separate, never-deployed
+  `~/business-os` project into *this* VPS's existing Postgres+Tailscale+Caddy stack (avoids
+  needing the `HCLOUD_TOKEN`/Cloudflare-tunnel setup that project was blocked on). Each new
+  service gets its own dedicated `tailscale serve --https=PORT` (8443 CRM, 8444 BI, 8445
+  flows) rather than a Caddy subpath — these apps assume domain root, same lesson as the
+  Nextcloud `/files` bug. Verified: all three reachable over Tailscale, all three refused on
+  the public IP (`nc` test). Cal.com deliberately deferred — heaviest of the four, wanted the
+  simpler three proven first. **Needs Jake:** one-time login setup on Metabase (`:8444`) and
+  n8n (`:8445`) — no way to create those accounts without him. Everything else needed to reach
+  "full enterprise OS" (Google/Meta Ads API tracking, jacobdart.com lead capture, Gmail/Calendar
+  MCP for real calendar writes, Otter/tldv re-auth) is credential-blocked on Jake's side —
+  itemized with exact next steps in `docs/roadmap-full-os.md`.
+- MCP connectors (Gmail/Calendar via Nango) — credential-blocked, see roadmap doc
 - Personas / specialized agents
 - ~~Fix Nango container~~ ✅ Fixed 2026-06-30 — see below
 
@@ -231,14 +248,16 @@ ip rule show | grep 100.64                          # our rule should sit one pr
 ssh -i ~/.ssh/aios aios@178.156.169.121 "cd ~/personal-ai-os/platform && docker compose --env-file ../.env ps"
 ```
 
-**Next real work item**: Phases 2 and 3 are fully done. Phase 4's vault tool use is done
-(agent now has real list/search/read/write/append tools over `/vault` — see Phase 4 section
-above). Remaining Phase 4 work: intake service (Recall.ai/Otter webhooks → normalized
-transcripts the agent can search/act on), MCP connectors (Gmail/Calendar via Nango, currently
-idle), and personas/mode-specific tool routing. **Open decision, not yet resolved**: whether to
-keep Tailscale-only access for everything, or move to a hybrid model (Tailscale for
-SSH/admin, public HTTPS+auth for the chat UI) — raised by Jake, deliberately not bundled into
-any of the above, needs its own planning session.
+**Next real work item**: See `docs/roadmap-full-os.md` for the full "enterprise OS" plan and
+exact blockers. Short version: chat + vault second brain (done), intake capture + auto-draft
+loop (done), CRM/BI/workflow apps deployed (done, need Jake's one-time logins on Metabase/n8n).
+Everything past that — ad campaign tracking, jacobdart.com lead capture, real calendar writes,
+Otter/tldv re-auth — is blocked on Jake providing credentials/OAuth consent/one code change in
+a different repo; itemized with next steps in the roadmap doc. **Open decision, not yet
+resolved**: whether to keep Tailscale-only access for everything, or move to a hybrid model
+(Tailscale for SSH/admin, public HTTPS+auth for user-facing apps) — raised by Jake, relevant
+now that jacobdart.com needs to reach the intake endpoint; see roadmap doc §1 for the Funnel
+option.
 
 **Known follow-up (not blocking)**: no persistent fix exists yet for the Mac's Mullvad
 DNS-clobbering or firewall-blocking-CGNAT issues (see Phase 2 section above) — unlike Fedora's
