@@ -2,7 +2,11 @@
 Description=Run AIOS daily briefing every morning
 
 [Timer]
-OnCalendar=*-*-* 07:03:00
+# VPS runs UTC; this systemd version doesn't support timezone-qualified
+# OnCalendar strings. 14:07 UTC = ~8:07am Mountain during MDT (UTC-6,
+# summer). When Mountain switches to MST (UTC-7) in November, bump this to
+# 15:07 to hold the same local time.
+OnCalendar=*-*-* 14:07:00
 Persistent=true
 
 [Install]

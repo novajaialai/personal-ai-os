@@ -1,4 +1,5 @@
 import os
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -142,6 +143,43 @@ def ui():
 @app.get("/health")
 def health():
     return {"status": "ok", "model": MODEL}
+
+
+def _digest_to_html(md: str) -> str:
+    """Minimal markdown->HTML for digest content (headers, bold, paragraphs).
+    No external deps/CDN — the digest format is simple and fully controlled."""
+    import html as _html
+
+    lines = md.splitlines()
+    out = []
+    for line in lines:
+        line = _html.escape(line)
+        line = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", line)
+        if line.startswith("# "):
+            out.append(f"<h1>{line[2:]}</h1>")
+        elif line.startswith("## "):
+            out.append(f"<h2>{line[3:]}</h2>")
+        elif line.strip() == "":
+            out.append("")
+        else:
+            out.append(f"<p>{line}</p>")
+    return "\n".join(out)
+
+
+@app.get("/api/digest/latest")
+def api_digest_latest():
+    d = vault.latest_digest()
+    if not d:
+        return {"date": None, "content": "", "html": "<p>No digest yet.</p>"}
+    return {"date": d["date"], "content": d["content"], "html": _digest_to_html(d["content"])}
+
+
+_DIGEST_UI = Path(__file__).parent / "digest.html"
+
+
+@app.get("/digest", response_class=HTMLResponse)
+def digest_page():
+    return _DIGEST_UI.read_text()
 
 
 def _extract_text(content_blocks) -> str:

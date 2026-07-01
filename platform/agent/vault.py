@@ -97,3 +97,15 @@ def append_note(rel_path: str, content: str) -> str:
     with p.open("a") as f:
         f.write(entry)
     return str(p.relative_to(VAULT))
+
+
+def latest_digest() -> dict | None:
+    """Most recent daily digest, by filename date (Inbox/Digests/YYYY-MM-DD.md)."""
+    digests_dir = VAULT / "Inbox" / "Digests"
+    if not digests_dir.exists():
+        return None
+    files = sorted(digests_dir.glob("*.md"), reverse=True)
+    if not files:
+        return None
+    latest = files[0]
+    return {"date": latest.stem, "content": latest.read_text()}

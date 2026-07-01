@@ -22,10 +22,11 @@ new tokens needed for the infra piece.
 |---|---|---|---|
 | Agent chat | `https://aios-jake-1.tail828365.ts.net/` | Second brain, now with real vault tools (list/search/read/write/append notes) | ✅ Live, verified |
 | Intake API | `.../intake/lead`, `.../intake/transcript` | Webhook capture → vault → agent auto-drafts follow-ups/action items | ✅ Live, verified end-to-end |
-| EspoCRM | `https://aios-jake-1.tail828365.ts.net:8443/` | CRM — contacts, leads, deals pipeline | ✅ Live, admin auto-provisioned (see `.env` on VPS for `ESPO_ADMIN_PASSWORD`) |
+| Twenty CRM | `https://aios-jake-1.tail828365.ts.net:8443/` | CRM — contacts, leads, deals pipeline | ✅ Live, **needs one-time setup**: visit once, create your own account (swapped from EspoCRM 2026-07-01 — Twenty is better-designed/more modern; EspoCRM removed) |
 | Metabase | `https://aios-jake-1.tail828365.ts.net:8444/` | BI / dashboards — "beautiful data rendered" | ✅ Live, **needs one-time setup**: visit once, create your own admin login |
-| n8n | `https://aios-jake-1.tail828365.ts.net:8445/` | Workflow automation spine (ad tracking, lead routing, anything cross-system) | ✅ Live, **needs one-time setup**: visit once, create your own owner account |
+| n8n | `https://aios-jake-1.tail828365.ts.net:8445/` | Workflow automation spine (ad tracking, lead routing, anything cross-system) | ✅ Live, **needs one-time setup**: visit once, create your own owner account. No n8n.io account needed — self-hosted, fully free (Sustainable Use License), telemetry disabled. |
 | Nextcloud | `https://aios-jake-1.tail828365.ts.net/files` | Files (vault is here too, but you don't need to touch it — chat is the interface) | ✅ Already running |
+| Daily briefing | systemd timer, 07:03 UTC | Agent proactively reviews Inbox/leads, Inbox/transcripts, Inbox/approvals, action-items.md and writes a digest — **no one has to ask**. First piece of actual Jarvis-style "acts on its own" behavior, vs. only reacting to chat/webhooks. | ✅ Live, verified (`infra/systemd/aios-daily-briefing.*`, `scripts/aios-daily-briefing.sh`) |
 
 Each new service is exposed on its own dedicated Tailscale HTTPS port (`8443`/`8444`/`8445`)
 rather than a Caddy subpath — apps like EspoCRM/Metabase/n8n assume they own their domain root
