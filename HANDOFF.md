@@ -65,14 +65,56 @@ The systemd service tunnels `localhost:8443 → 178.156.169.121:8080` (Caddy) vi
 |-------|--------|-------|
 | 0 — VPS provision | ✅ Done | Hetzner CPX41, cloud-init, Tailscale |
 | 1 — Docker stack | ✅ Done | Caddy, Nextcloud, agent, Postgres |
-| 2 — Nextcloud vault | ✅ Done | Nextcloud running, Obsidian vault sync config ready |
+| 2 — Nextcloud vault | ✅ Actually done 2026-07-01 | Was marked done prematurely — vault wasn't really exposed. See below. |
 | 3 — Agent core | ✅ Done | FastAPI + Claude sonnet-4-6, SQLite sessions, vault reads |
 | Tailscale TCP from Fedora | ✅ Done | `ip rule` priority race + nftables gaps fixed; `ts-mullvad-reconcile.timer` makes it durable across reconnects |
 | Phase 3 — onboarding interview | ✅ Done 2026-07-01 | `/vault/context/` filled — see below |
 
 ### Phase 2 Remaining
-- Install Nextcloud desktop sync on Mac
-- Point Obsidian at the synced vault folder
+- Nextcloud desktop sync installed on Mac and confirmed pulling real `Vault/` content
+  (2026-07-01). Remaining: point Obsidian at the synced local folder once Jake confirms the
+  local path he chose in the sync wizard.
+
+**Nextcloud vault exposure fix (2026-07-01):** Setting up Mac desktop sync surfaced four
+separate, real bugs — Phase 2 had been marked done without ever testing an actual client
+connection end to end:
+
+1. **Mac Tailscale DNS clobbered by Mullvad**: `tailscale status` showed
+   `getDNSServers failed: Fallthrough, no resolvers found` — Mullvad's DNS override replaced
+   Tailscale's MagicDNS resolver (`100.100.100.100`) and didn't restore it on disconnect, so
+   `*.ts.net` hostnames stopped resolving even with Mullvad off. Fixed with
+   `Tailscale down && Tailscale up` to force it to reassert its resolver config. **Not
+   persistent** — no macOS equivalent of `ts-mullvad-reconcile.sh` exists yet; may recur on
+   future Mullvad reconnects.
+2. **Mullvad firewall blocks CGNAT even for split-tunnel-excluded apps**: separately from DNS,
+   TCP connections to the VPS's Tailscale IP hung/timed out while Mullvad was connected, even
+   for apps explicitly split-tunnel-excluded (`Tailscale.app`, `Nextcloud.app`). Same bug class
+   as the Linux nftables issue above, different firewall engine (macOS `pf`) — root cause not
+   fully diagnosed (needs interactive `sudo pfctl -sr`, which needs Jake at the keyboard).
+   Workaround used: disconnect Mullvad during Nextcloud setup/sync.
+3. **Caddy `/files` route never stripped its own prefix**: `platform/caddy/Caddyfile`
+   proxied `/files/*` straight through to the Nextcloud container without stripping `/files`,
+   and Nextcloud's `overwritewebroot` was never set — so Nextcloud received literal requests
+   for `/files/status.php` etc., which don't exist internally, and 404'd (surfaced as a
+   confusing `401` in the Nextcloud client). This is why manual browser access to `/files`
+   "worked" (it tolerated root-relative absolute links) but the desktop/mobile sync clients
+   could not. Fixed: `occ config:system:set overwritewebroot --value=/files` (+
+   `overwrite.cli.url`, `overwriteprotocol=https`) on the Nextcloud side, and
+   `uri strip_prefix /files` added to the Caddy `@nextcloud` block. Legacy unprefixed routes
+   (`/status.php`, `/remote.php/*`, etc.) left in place as a harmless fallback.
+4. **Stale admin password**: `.env`'s `NEXTCLOUD_ADMIN_PASSWORD` no longer matched the live
+   Nextcloud account (only used by the Nextcloud image on first container init — a later
+   recreate or manual change had drifted from it). WebDAV `PROPFIND` returned `401` even after
+   fixing #3. Fixed with `occ user:resetpassword --password-from-env jake` to force it back in
+   sync with `.env`.
+5. **Vault External Storage mount existed but was never scanned**: a `Vault` local External
+   Storage mount (→ `/srv/aios/vault`, applicable to all users) was already configured from an
+   earlier session, but its contents never showed up over WebDAV (`PROPFIND` on `/Vault/`
+   returned zero children) because Nextcloud's file-cache index was never populated for it.
+   Fixed with `occ files:scan jake`. This is why a first full sync pulled Nextcloud's built-in
+   demo content (`Documents/`, `Photos/`, `Templates/`, sample files) instead of the real vault
+   — that demo content is harmless and lives in Nextcloud's own per-user storage, separate from
+   `Vault/`; the sync client should be pointed at `Vault/` only via selective sync.
 
 ### Phase 3 Remaining
 - None. Onboarding interview complete (see "Onboarding interview" below).
@@ -162,4 +204,12 @@ ip rule show | grep 100.64                          # our rule should sit one pr
 ssh -i ~/.ssh/aios aios@178.156.169.121 "cd ~/personal-ai-os/platform && docker compose --env-file ../.env ps"
 ```
 
-**Next real work item**: Phase 2 remaining — install Nextcloud desktop sync on Mac and point Obsidian at the synced vault folder. Phase 3 is fully done; Phase 4 (intake service, MCP connectors, personas) is next after that.
+**Next real work item**: Point Obsidian at the Mac's synced `Vault/` folder (path TBD — ask
+Jake what he chose in the Nextcloud wizard). After that, Phase 2 and 3 are both fully done;
+Phase 4 (intake service, MCP connectors, personas) is next.
+
+**Known follow-up (not blocking)**: no persistent fix exists yet for the Mac's Mullvad
+DNS-clobbering or firewall-blocking-CGNAT issues (see Phase 2 section above) — unlike Fedora's
+`ts-mullvad-reconcile.timer`, there's no macOS daemon reasserting Tailscale's DNS/firewall
+exceptions after a Mullvad reconnect. Worth building if this keeps recurring; needs Jake's
+interactive `sudo` to inspect `pfctl` rules first.

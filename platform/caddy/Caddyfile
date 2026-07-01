@@ -7,9 +7,19 @@
 		reverse_proxy intake:8080
 	}
 
-	# Nextcloud lives at /files (WebDAV stays at /remote.php/*)
-	@nextcloud path /files /files/* /remote.php/* /status.php /ocs/* /apps/* /core/* /dist/*
+	# Nextcloud lives at /files. overwritewebroot=/files is set on the Nextcloud
+	# side, so Caddy must strip the /files prefix before proxying — Nextcloud's
+	# own internal paths (status.php, remote.php/dav, apps, core, dist) are all
+	# root-relative inside the container.
+	@nextcloud path /files /files/*
 	handle @nextcloud {
+		uri strip_prefix /files
+		reverse_proxy nextcloud:80
+	}
+
+	# Legacy unprefixed aliases (back-compat with clients configured pre-fix)
+	@nextcloud_legacy path /remote.php/* /status.php /ocs/* /apps/* /core/* /dist/*
+	handle @nextcloud_legacy {
 		reverse_proxy nextcloud:80
 	}
 
