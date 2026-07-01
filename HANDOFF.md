@@ -226,6 +226,29 @@ Nango is now up, migrated its schema, and listening on :3003 (proxied internally
 stable for 60s+ post-recreate; Nextcloud's Postgres data survived the `db` container recreation
 (same-name/same-hash env change triggered it too) since it's on the persistent `db_data` volume.
 
+### Phase 5 — Voice (built 2026-07-01, blocked on API keys)
+Per `docs/runbook-phase5.md`: `POST /voice` (audio → Groq Whisper STT → the exact same
+`agent_reply()` tool-use loop `/chat` uses → ElevenLabs TTS → audio out), sharing `session_id`
+so a thread started by text continues by voice — the whole point of the design, per the
+runbook's "one brain, two input modes." `chat()`'s body was refactored into a reusable
+`agent_reply()` function specifically so voice doesn't fork a second agent loop, matching the
+runbook's explicit instruction not to.
+
+Shipped: `platform/agent/voice.py` (STT/TTS provider calls), `voice.html` (push-to-talk PWA —
+hold button, `MediaRecorder`, plays the reply, remembers `session_id` in `localStorage`),
+`scripts/voice-hotkey.sh` (Mac/Linux hold-to-talk via `sox`+`curl`), a Voice card on the hub
+with live status.
+
+**Blocked**: `GROQ_API_KEY` and `ELEVENLABS_API_KEY` are BYO keys, not yet in `.env` — both have
+fast free-tier signups (groq.com, elevenlabs.io). Verified the failure mode is clean (503,
+clear message) rather than a crash. Everything else — endpoint wiring, session continuity,
+header-encoding for transcript/reply text (fixed a real bug: raw text in HTTP headers breaks on
+newlines/non-ASCII, now percent-encoded) — is built and ready the moment those two keys land.
+
+Phase 6 (productize — Packer golden image, idempotent bootstrap/customize, clean-room dry-run
+deploy) is explicitly **not** started and not relevant right now — it's about packaging this
+for resale to future customers, unrelated to finishing Jake's own build.
+
 ---
 
 ## Key Files
@@ -269,14 +292,16 @@ ssh -i ~/.ssh/aios aios@178.156.169.121 "cd ~/personal-ai-os/platform && docker 
 
 **Next real work item**: See `docs/roadmap-full-os.md` for the full "enterprise OS" plan and
 exact blockers. Short version: chat + vault second brain (done), intake capture + auto-draft
-loop (done), CRM/BI/workflow apps deployed (done, need Jake's one-time logins on Metabase/n8n).
-Everything past that — ad campaign tracking, jacobdart.com lead capture, real calendar writes,
-Otter/tldv re-auth — is blocked on Jake providing credentials/OAuth consent/one code change in
-a different repo; itemized with next steps in the roadmap doc. **Open decision, not yet
-resolved**: whether to keep Tailscale-only access for everything, or move to a hybrid model
-(Tailscale for SSH/admin, public HTTPS+auth for user-facing apps) — raised by Jake, relevant
-now that jacobdart.com needs to reach the intake endpoint; see roadmap doc §1 for the Funnel
-option.
+loop (done), CRM/BI/workflow apps deployed (done — Metabase/n8n logins set up 2026-07-01, Twenty
+CRM login still needs Jake's one-time visit), voice (built, blocked on `GROQ_API_KEY` +
+`ELEVENLABS_API_KEY`). Everything past that — ad campaign tracking, jacobdart.com lead capture,
+real calendar writes, Otter/tldv re-auth — is blocked on Jake providing credentials/OAuth
+consent/one code change in a different repo; itemized with next steps in the roadmap doc.
+Phase 6 (productize) is explicitly out of scope for now — not relevant until this is being
+packaged for other customers. **Open decision, not yet resolved**: whether to keep
+Tailscale-only access for everything, or move to a hybrid model (Tailscale for SSH/admin,
+public HTTPS+auth for user-facing apps) — raised by Jake, relevant now that jacobdart.com needs
+to reach the intake endpoint; see roadmap doc §1 for the Funnel option.
 
 **Known follow-up (not blocking)**: no persistent fix exists yet for the Mac's Mullvad
 DNS-clobbering or firewall-blocking-CGNAT issues (see Phase 2 section above) — unlike Fedora's
