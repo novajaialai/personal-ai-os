@@ -278,11 +278,51 @@ def chat(req: ChatRequest):
 
 
 _VOICE_UI = Path(__file__).parent / "voice.html"
+_VOICE_PICKER_UI = Path(__file__).parent / "voice-picker.html"
 
 
 @app.get("/voice", response_class=HTMLResponse)
 def voice_page():
     return _VOICE_UI.read_text()
+
+
+@app.get("/voice-picker", response_class=HTMLResponse)
+def voice_picker_page():
+    return _VOICE_PICKER_UI.read_text()
+
+
+@app.get("/api/voice-picker/voices")
+def voice_picker_list():
+    return voice.STOCK_VOICES
+
+
+@app.get("/api/voice-picker/preview")
+def voice_picker_preview(voice_id: str):
+    try:
+        audio = voice.synthesize(
+            "Hey, this is your second brain. Here's how I sound with this voice.",
+            voice_id=voice_id,
+        )
+    except voice.VoiceNotConfigured as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=502, detail=f"TTS failed: {e}")
+    return Response(content=audio, media_type="audio/mpeg")
+
+
+class VoiceSelectRequest(BaseModel):
+    voice_id: str
+
+
+@app.post("/api/voice-picker/select")
+def voice_picker_select(req: VoiceSelectRequest):
+    voice.set_voice_id(req.voice_id)
+    return {"status": "ok", "voice_id": req.voice_id}
+
+
+@app.get("/api/voice-picker/current")
+def voice_picker_current():
+    return {"voice_id": voice.current_voice_id()}
 
 
 @app.post("/voice")

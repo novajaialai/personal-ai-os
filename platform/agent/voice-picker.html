@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIOS — Voice Picker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f0f0f;
+    color: #e8e8e8;
+    min-height: 100dvh;
+  }
+
+  header {
+    padding: 14px 20px;
+    border-bottom: 1px solid #1e1e1e;
+  }
+  header h1 { font-size: 15px; font-weight: 600; letter-spacing: 0.04em; color: #fff; }
+  header p { font-size: 12px; color: #666; margin-top: 4px; }
+
+  main {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .voice-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #131313;
+    border: 1px solid #1e1e1e;
+    border-radius: 10px;
+    padding: 12px 16px;
+  }
+  .voice-row.current { border-color: #2a9d5c; }
+
+  .voice-name { flex: 1; font-size: 15px; font-weight: 500; }
+  .voice-name .badge {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 10px;
+    color: #2a9d5c;
+    border: 1px solid #2a9d5c;
+    border-radius: 4px;
+    padding: 1px 6px;
+    text-transform: uppercase;
+  }
+
+  button {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    color: #ccc;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  button:hover { border-color: #444; color: #fff; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button.use-btn { background: #17321f; border-color: #2a9d5c; color: #4ade80; }
+  button.use-btn:hover { background: #1c3d26; }
+
+  #status { font-size: 13px; color: #888; margin-top: 10px; min-height: 20px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>VOICE PICKER</h1>
+    <p>Preview each voice, then pick the one you want the agent to use. Takes effect immediately, no restart.</p>
+  </header>
+  <main id="voices">Loading…</main>
+  <div id="status" style="max-width:560px;margin:0 auto;padding:0 20px;"></div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    let currentVoiceId = null;
+
+    async function load() {
+      const [voicesRes, currentRes] = await Promise.all([
+        fetch('/api/voice-picker/voices'),
+        fetch('/api/voice-picker/current'),
+      ]);
+      const voices = await voicesRes.json();
+      currentVoiceId = (await currentRes.json()).voice_id;
+
+      const container = document.getElementById('voices');
+      container.innerHTML = '';
+      for (const [name, id] of Object.entries(voices)) {
+        const row = document.createElement('div');
+        row.className = 'voice-row' + (id === currentVoiceId ? ' current' : '');
+        row.dataset.voiceId = id;
+        row.innerHTML = `
+          <div class="voice-name">${name}${id === currentVoiceId ? '<span class="badge">Active</span>' : ''}</div>
+          <button class="preview-btn">▶ Preview</button>
+          <button class="use-btn">Use this</button>
+        `;
+        row.querySelector('.preview-btn').addEventListener('click', () => preview(id, row));
+        row.querySelector('.use-btn').addEventListener('click', () => select(id, name));
+        container.appendChild(row);
+      }
+    }
+
+    async function preview(voiceId, row) {
+      const btn = row.querySelector('.preview-btn');
+      btn.disabled = true;
+      btn.textContent = 'Loading…';
+      try {
+        const res = await fetch('/api/voice-picker/preview?voice_id=' + encodeURIComponent(voiceId));
+        if (!res.ok) throw new Error(await res.text());
+        const blob = await res.blob();
+        new Audio(URL.createObjectURL(blob)).play();
+      } catch (e) {
+        statusEl.textContent = 'Preview failed: ' + e.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '▶ Preview';
+      }
+    }
+
+    async function select(voiceId, name) {
+      statusEl.textContent = 'Setting ' + name + ' as the active voice…';
+      const res = await fetch('/api/voice-picker/select', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voice_id: voiceId }),
+      });
+      if (res.ok) {
+        statusEl.textContent = name + ' is now the active voice. Try /voice to hear it live.';
+        load();
+      } else {
+        statusEl.textContent = 'Failed to set voice.';
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>
