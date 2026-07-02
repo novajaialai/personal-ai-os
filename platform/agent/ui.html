@@ -18,7 +18,7 @@
     margin-left: auto;
     font-size: 11px;
     color: var(--text-faint);
-    font-family: monospace;
+    font-family: var(--font-mono);
     cursor: pointer;
   }
 
@@ -41,7 +41,14 @@
     line-height: 1.8;
     padding: 0 24px;
   }
-  #empty-state strong { color: var(--text-dim); font-weight: 600; display: block; font-size: 15px; }
+  #empty-state strong {
+    color: var(--text-body);
+    font-family: var(--font-display);
+    font-weight: 500;
+    display: block;
+    font-size: 22px;
+    margin-bottom: 6px;
+  }
 
   .msg {
     padding: 10px 24px;
@@ -60,12 +67,17 @@
   .msg.assistant { color: var(--text); overflow-wrap: break-word; }
   .msg.assistant.streaming { white-space: pre-wrap; }
 
-  .msg.user::before { content: 'You  '; font-size: 11px; color: var(--text-faint); display: block; margin-bottom: 3px; }
-  .msg.assistant::before { content: 'AIOS'; font-size: 11px; color: var(--accent-bright); display: block; margin-bottom: 3px; font-weight: 600; }
+  .msg.user::before, .msg.assistant::before, .msg.working::before {
+    font-family: var(--font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .msg.user::before { content: 'You'; font-size: 10px; color: var(--text-faint); display: block; margin-bottom: 3px; }
+  .msg.assistant::before { content: '❯ AIOS'; font-size: 10px; color: var(--accent-bright); display: block; margin-bottom: 3px; font-weight: 600; }
 
   .msg.thinking { opacity: 0.4; font-style: italic; }
   .msg.working { opacity: 0.45; font-size: 13px; font-style: italic; white-space: pre-wrap; }
-  .msg.working::before { content: 'AIOS · working'; font-size: 11px; color: var(--text-faint); display: block; margin-bottom: 3px; font-style: normal; }
+  .msg.working::before { content: '❯ AIOS · working'; font-size: 10px; color: var(--text-faint); display: block; margin-bottom: 3px; font-style: normal; }
 
   /* rendered markdown inside assistant messages */
   .msg.assistant p { margin: 0 0 8px; }
@@ -153,7 +165,10 @@ const input = $('input');
 const send = $('send');
 const sessionLabel = $('session-id');
 
-let sessionId = localStorage.getItem('aios_session_id') || null;
+// A ?session= link (e.g. the hub's Resume card) overrides the stored session.
+const urlSession = new URLSearchParams(location.search).get('session');
+let sessionId = urlSession || localStorage.getItem('aios_session_id') || null;
+if (urlSession) localStorage.setItem('aios_session_id', urlSession);
 
 function setSession(id) {
   sessionId = id;
@@ -322,7 +337,7 @@ input.addEventListener('input', () => {
 
 $('new-session').addEventListener('click', () => {
   setSession(null);
-  location.reload();
+  location.href = '/chat'; // drop any ?session= so the old thread isn't re-adopted
 });
 
 sessionLabel.addEventListener('click', () => {

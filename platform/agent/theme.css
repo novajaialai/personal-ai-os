@@ -1,29 +1,38 @@
 /* AIOS shared theme — single source of truth for the design system.
    Pages keep only their own layout styles inline; colors, type, and shared
-   components (header, status dots, cards, buttons, back link) live here. */
+   components (header, status dots, cards, buttons, back link) live here.
+
+   Direction: "a quiet machine room for your mind." Cool blue-black surfaces
+   (the machine room) under warm paper-white text (the study). Three type
+   roles, all system stacks — no external assets, per the sovereignty rule:
+   serif for display/greeting moments, mono for status and data, sans for body. */
 
 :root {
-  --bg: #0f0f0f;
-  --bg-raised: #131313;
-  --bg-input: #161616;
-  --border: #1e1e1e;
-  --border-strong: #2a2a2a;
-  --border-hover: #3a3a3a;
-  --text: #e8e8e8;
-  --text-body: #d0d0d0;
-  --text-dim: #9a9a9a;   /* secondary text — AA on --bg */
-  --text-faint: #767676; /* labels, hints — still ≥4.5:1 on --bg */
-  --accent: #2a9d5c;
+  --bg: #0d0f12;
+  --bg-raised: #14171c;
+  --bg-input: #171a20;
+  --border: #21252d;
+  --border-strong: #2b3039;
+  --border-hover: #3b414d;
+  --text: #eae8e1;
+  --text-body: #d3d1c9;
+  --text-dim: #a19f96;   /* secondary text — AA on --bg */
+  --text-faint: #7c7a72; /* labels, hints — still ≥4.5:1 on --bg */
+  --accent: #2fa565;
   --accent-bright: #4ade80;
   --accent-dim: #17321f;
   --danger: #c0392b;
   --danger-bright: #e74c3c;
+
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: ui-serif, 'New York', Georgia, 'Times New Roman', serif;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-body);
   background: var(--bg);
   color: var(--text);
   min-height: 100dvh;
@@ -48,11 +57,13 @@ header .tag { font-size: 12px; color: var(--text-faint); }
 .back { font-size: 13px; color: var(--text-faint); }
 .back:hover { color: var(--text-dim); }
 
+.mono { font-family: var(--font-mono); }
+
 .dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #444;
+  background: #40454f;
   flex-shrink: 0;
   transition: background 0.3s, box-shadow 0.3s;
 }
@@ -69,21 +80,22 @@ header .tag { font-size: 12px; color: var(--text-faint); }
 a.card:hover { border-color: var(--border-hover); transform: translateY(-1px); }
 
 .section-label {
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
   color: var(--text-faint);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   margin: 0 0 10px;
 }
-.section-label a { color: var(--text-faint); font-size: 12px; }
+.section-label a { color: var(--text-faint); font-size: 11px; }
 .section-label a:hover { color: var(--text-dim); }
 
 button {
   font-family: inherit;
-  background: #1a1a1a;
+  background: #1b1f26;
   border: 1px solid var(--border-strong);
   color: #ccc;
   border-radius: 8px;
@@ -91,7 +103,7 @@ button {
   font-size: 13px;
   cursor: pointer;
 }
-button:hover { border-color: #444; color: #fff; }
+button:hover { border-color: #4a5160; color: #fff; }
 button:disabled { opacity: 0.4; cursor: default; }
 
 button.primary {
@@ -100,5 +112,9 @@ button.primary {
   color: #fff;
   font-weight: 500;
 }
-button.primary:hover { background: #35b56c; }
+button.primary:hover { background: #37b872; }
 button.primary:disabled { background: var(--accent-dim); border-color: var(--accent-dim); color: #4a7a5a; opacity: 1; cursor: not-allowed; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

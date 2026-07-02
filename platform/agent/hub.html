@@ -10,7 +10,8 @@
 
   #global-status {
     margin-left: auto;
-    font-size: 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
     color: var(--text-faint);
     display: flex;
     align-items: center;
@@ -20,34 +21,95 @@
   main {
     max-width: 760px;
     margin: 0 auto;
-    padding: 32px 20px 80px;
+    padding: 40px 20px 80px;
   }
 
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+  .rise { animation: rise 0.45s ease both; }
+  .rise.d1 { animation-delay: 0.05s; }
+  .rise.d2 { animation-delay: 0.12s; }
+  .rise.d3 { animation-delay: 0.19s; }
+  .rise.d4 { animation-delay: 0.26s; }
+
+  /* The console greeting — the OS addresses you, then reports in mono. */
+  #greeting {
+    font-family: var(--font-display);
+    font-size: 34px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  #report {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--text-faint);
+    margin-bottom: 36px;
+    min-height: 16px;
+  }
+  #report b { color: var(--text-dim); font-weight: 500; }
+
   .primary-card {
-    display: block;
-    background: linear-gradient(135deg, #17181b, #101012);
-    border: 1px solid #262626;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: linear-gradient(135deg, #171a20, #111319);
+    border: 1px solid var(--border-strong);
     border-radius: 14px;
     padding: 22px 24px;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     transition: border-color 0.2s, transform 0.15s;
   }
   .primary-card:hover { border-color: var(--border-hover); transform: translateY(-1px); }
 
-  .primary-card .icon { font-size: 20px; margin-right: 10px; }
-  .primary-card h2 { font-size: 18px; font-weight: 600; color: #fff; display: inline; }
-  .primary-card p { font-size: 13px; color: var(--text-dim); margin-top: 6px; }
-  .primary-card .arrow { float: right; color: var(--text-faint); font-size: 14px; }
+  .primary-card .glyph {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    color: var(--accent-bright);
+    flex-shrink: 0;
+  }
+  .primary-card .body { flex: 1; }
+  .primary-card h2 { font-size: 18px; font-weight: 600; color: #fff; }
+  .primary-card p { font-size: 13px; color: var(--text-dim); margin-top: 5px; }
+  .primary-card .arrow { color: var(--text-faint); font-size: 14px; flex-shrink: 0; }
 
-  .voice-banner {
+  .duo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 36px;
+  }
+  .duo .card {
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 14px 18px;
-    margin-bottom: 36px;
+    min-width: 0;
   }
-  .voice-banner .name { font-size: 13px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
-  .voice-banner .desc { font-size: 13px; color: var(--text-faint); flex: 1; }
+  .duo .name {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    flex-shrink: 0;
+  }
+  .duo .desc {
+    font-size: 13px;
+    color: var(--text-faint);
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #resume-card { display: none; }
+  #resume-card .desc { color: var(--text-body); font-style: italic; }
+  #resume-age { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); flex-shrink: 0; }
 
   .digest-preview {
     background: var(--bg-raised);
@@ -55,12 +117,24 @@
     border-radius: 10px;
     padding: 16px 18px;
     font-size: 14px;
-    color: #ccc;
+    color: var(--text-body);
     line-height: 1.6;
     margin-bottom: 36px;
     min-height: 20px;
   }
   .digest-preview.empty { color: var(--text-faint); font-style: italic; }
+  .digest-preview h1 { display: none; } /* date is redundant under the section label */
+  .digest-preview h2 {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 14px 0 4px;
+  }
+  .digest-preview h2:first-child { margin-top: 0; }
+  .digest-preview p { margin-bottom: 4px; }
 
   .card-grid {
     display: grid;
@@ -75,12 +149,14 @@
     justify-content: space-between;
     margin-bottom: 8px;
   }
-  .service-card .name { font-size: 13px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  .service-card .name { font-family: var(--font-mono); font-size: 11px; font-weight: 500; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; }
   .service-card .title { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 3px; }
   .service-card .desc { font-size: 12px; color: var(--text-faint); }
 
-  @media (max-width: 480px) {
-    .card-grid { grid-template-columns: 1fr; }
+  @media (max-width: 540px) {
+    .card-grid { grid-template-columns: 1fr 1fr; }
+    .duo { grid-template-columns: 1fr; }
+    #greeting { font-size: 28px; }
   }
 </style>
 </head>
@@ -92,51 +168,110 @@
   </header>
 
   <main>
-    <a class="primary-card" href="/chat">
-      <span class="arrow">Open →</span>
-      <span class="icon">💬</span><h2>Chat with your second brain</h2>
-      <p>Ask, capture, search — the main interface. Everything else here is a supporting tool.</p>
-    </a>
-
-    <a class="card voice-banner" href="/voice">
-      <span class="name">Voice</span>
-      <span class="desc">Push to talk — same brain, spoken</span>
-      <span class="dot" id="dot-voice"></span>
-    </a>
-
-    <div class="section-label">
-      <span>Today's digest</span>
-      <a href="/digest">Full page →</a>
+    <div class="rise">
+      <div id="greeting">Hello.</div>
+      <div id="report">waking up…</div>
     </div>
-    <div class="digest-preview empty" id="digest-preview">Loading…</div>
 
-    <div class="section-label"><span>Business tools</span></div>
-    <div class="card-grid">
-      <a class="card service-card" id="link-crm" target="_blank" rel="noopener">
-        <div class="top-row"><span class="name">CRM</span><span class="dot" id="dot-crm"></span></div>
-        <div class="title">Twenty</div>
-        <div class="desc">Contacts, leads, deals</div>
+    <a class="primary-card rise d1" href="/chat">
+      <span class="glyph">❯</span>
+      <span class="body">
+        <h2>Chat with your second brain</h2>
+        <p>Ask, capture, search — the main interface. Everything else here is a supporting tool.</p>
+      </span>
+      <span class="arrow">Open →</span>
+    </a>
+
+    <div class="duo rise d2">
+      <a class="card" id="resume-card" href="/chat">
+        <span class="name">Resume</span>
+        <span class="desc" id="resume-title"></span>
+        <span id="resume-age"></span>
       </a>
-      <a class="card service-card" id="link-bi" target="_blank" rel="noopener">
-        <div class="top-row"><span class="name">Dashboards</span><span class="dot" id="dot-bi"></span></div>
-        <div class="title">Metabase</div>
-        <div class="desc">BI, reporting, charts</div>
+      <a class="card" href="/voice">
+        <span class="name">Voice</span>
+        <span class="desc">Push to talk — same brain, spoken</span>
+        <span class="dot" id="dot-voice"></span>
       </a>
-      <a class="card service-card" id="link-flows" target="_blank" rel="noopener">
-        <div class="top-row"><span class="name">Workflows</span><span class="dot" id="dot-flows"></span></div>
-        <div class="title">n8n</div>
-        <div class="desc">Automation, integrations</div>
-      </a>
-      <a class="card service-card" id="link-files" href="/files" target="_blank" rel="noopener">
-        <div class="top-row"><span class="name">Files</span><span class="dot" id="dot-nextcloud"></span></div>
-        <div class="title">Nextcloud</div>
-        <div class="desc">Vault sync</div>
-      </a>
+    </div>
+
+    <div class="rise d3">
+      <div class="section-label">
+        <span>Today's digest</span>
+        <a href="/digest">Full page →</a>
+      </div>
+      <div class="digest-preview empty" id="digest-preview">Loading…</div>
+    </div>
+
+    <div class="rise d4">
+      <div class="section-label"><span>Business tools</span></div>
+      <div class="card-grid">
+        <a class="card service-card" id="link-crm" target="_blank" rel="noopener">
+          <div class="top-row"><span class="name">CRM</span><span class="dot" id="dot-crm"></span></div>
+          <div class="title">Twenty</div>
+          <div class="desc">Contacts, leads, deals</div>
+        </a>
+        <a class="card service-card" id="link-bi" target="_blank" rel="noopener">
+          <div class="top-row"><span class="name">Dashboards</span><span class="dot" id="dot-bi"></span></div>
+          <div class="title">Metabase</div>
+          <div class="desc">BI, reporting, charts</div>
+        </a>
+        <a class="card service-card" id="link-flows" target="_blank" rel="noopener">
+          <div class="top-row"><span class="name">Workflows</span><span class="dot" id="dot-flows"></span></div>
+          <div class="title">n8n</div>
+          <div class="desc">Automation, integrations</div>
+        </a>
+        <a class="card service-card" id="link-files" href="/files" target="_blank" rel="noopener">
+          <div class="top-row"><span class="name">Files</span><span class="dot" id="dot-nextcloud"></span></div>
+          <div class="title">Nextcloud</div>
+          <div class="desc">Vault sync</div>
+        </a>
+      </div>
     </div>
   </main>
 
   <script>
     const POLL_MS = 15000;
+    const $ = id => document.getElementById(id);
+
+    // ---- Console greeting: the OS addresses you, then reports live facts.
+    const h = new Date().getHours();
+    $('greeting').textContent =
+      h < 5 ? 'Up late.' : h < 12 ? 'Good morning.' : h < 18 ? 'Good afternoon.' : 'Good evening.';
+
+    const report = { services: null, digest: null, session: null };
+    function renderReport() {
+      const parts = [];
+      if (report.services) parts.push(`<b>${report.services}</b> services up`);
+      if (report.digest !== null) parts.push(report.digest ? 'digest <b>ready</b>' : 'no digest yet');
+      if (report.session) parts.push(`last session <b>${report.session}</b>`);
+      $('report').innerHTML = parts.length ? parts.join(' · ') : 'agent unreachable — check the box';
+    }
+
+    function relAge(epochSec) {
+      const s = Math.max(1, Math.floor(Date.now() / 1000 - epochSec));
+      if (s < 3600) return Math.floor(s / 60) + 'm ago';
+      if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+      return Math.floor(s / 86400) + 'd ago';
+    }
+
+    // ---- Resume: pick up the most recent conversation where it left off.
+    async function loadResume() {
+      try {
+        const res = await fetch('/sessions', { cache: 'no-store' });
+        const sessions = await res.json();
+        if (!sessions.length) return;
+        const last = sessions[0];
+        report.session = relAge(last.updated_at);
+        renderReport();
+        if (!last.title) return;
+        const card = $('resume-card');
+        card.href = '/chat?session=' + encodeURIComponent(last.id);
+        $('resume-title').textContent = '“' + last.title + '”';
+        $('resume-age').textContent = relAge(last.updated_at);
+        card.style.display = 'flex';
+      } catch (e) { /* box asleep — card stays hidden */ }
+    }
 
     // Tool URLs are per-tenant — injected via the server from .env, never
     // hardcoded here (platform/ stays tenant-free).
@@ -145,7 +280,7 @@
         const res = await fetch('/api/hub-config', { cache: 'no-store' });
         const cfg = await res.json();
         for (const key of ['crm', 'bi', 'flows', 'files']) {
-          if (cfg[key]) document.getElementById('link-' + key).href = cfg[key];
+          if (cfg[key]) $('link-' + key).href = cfg[key];
         }
       } catch (e) { /* cards stay unlinked until the agent is reachable */ }
     }
@@ -154,7 +289,9 @@
       try {
         const res = await fetch('/api/digest/latest', { cache: 'no-store' });
         const data = await res.json();
-        const el = document.getElementById('digest-preview');
+        const el = $('digest-preview');
+        report.digest = !!data.date;
+        renderReport();
         if (data.date) {
           el.classList.remove('empty');
           el.innerHTML = data.html;
@@ -166,28 +303,32 @@
     }
 
     async function refreshStatus() {
-      const globalDot = document.getElementById('global-dot');
-      const globalText = document.getElementById('global-text');
+      const globalDot = $('global-dot');
+      const globalText = $('global-text');
       try {
         const res = await fetch('/api/status', { cache: 'no-store' });
         const data = await res.json();
         const map = { crm: 'dot-crm', bi: 'dot-bi', flows: 'dot-flows', nextcloud: 'dot-nextcloud', voice: 'dot-voice' };
-        let allUp = true;
+        let up = 0, total = 0;
         for (const [key, elId] of Object.entries(map)) {
-          const dot = document.getElementById(elId);
           const state = data[key] || 'down';
-          dot.className = 'dot ' + state;
-          if (state !== 'up') allUp = false;
+          $(elId).className = 'dot ' + state;
+          total++;
+          if (state === 'up') up++;
         }
-        globalDot.className = 'dot ' + (allUp ? 'up' : 'down');
-        globalText.textContent = allUp ? 'all systems up' : 'some services down';
+        report.services = `${up}/${total}`;
+        renderReport();
+        globalDot.className = 'dot ' + (up === total ? 'up' : 'down');
+        globalText.textContent = up === total ? 'all systems up' : 'some services down';
       } catch (e) {
         globalDot.className = 'dot down';
         globalText.textContent = 'status unavailable';
+        renderReport();
       }
     }
 
     loadConfig();
+    loadResume();
     refreshDigest();
     refreshStatus();
     setInterval(refreshDigest, POLL_MS);
