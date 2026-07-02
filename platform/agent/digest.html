@@ -4,45 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AIOS — Daily Digest</title>
+<link rel="stylesheet" href="/theme.css">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: #0f0f0f;
-    color: #e8e8e8;
-    min-height: 100dvh;
-  }
-
-  header {
-    padding: 14px 20px;
-    border-bottom: 1px solid #1e1e1e;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    position: sticky;
-    top: 0;
-    background: #0f0f0f;
-  }
-
-  header h1 { font-size: 15px; font-weight: 600; letter-spacing: 0.04em; color: #fff; }
-  header span { font-size: 12px; color: #555; }
+  header { position: sticky; top: 0; }
 
   #status {
     margin-left: auto;
     font-size: 11px;
-    color: #444;
+    color: var(--text-faint);
     display: flex;
     align-items: center;
     gap: 6px;
-  }
-
-  #dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #2a9d5c;
-    box-shadow: 0 0 6px #2a9d5c;
   }
 
   main {
@@ -53,7 +25,7 @@
 
   #date {
     font-size: 12px;
-    color: #666;
+    color: var(--text-faint);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     margin-bottom: 18px;
@@ -69,7 +41,7 @@
   #content h2 {
     font-size: 14px;
     font-weight: 600;
-    color: #999;
+    color: var(--text-dim);
     margin: 24px 0 8px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -78,23 +50,24 @@
   #content p {
     font-size: 15px;
     line-height: 1.65;
-    color: #d0d0d0;
+    color: var(--text-body);
     margin-bottom: 6px;
   }
 
   #content strong { color: #fff; }
 
   #empty {
-    color: #555;
+    color: var(--text-faint);
     font-size: 14px;
   }
 </style>
 </head>
 <body>
   <header>
+    <a class="back" href="/">← Hub</a>
     <h1>DAILY DIGEST</h1>
-    <span>AIOS second brain</span>
-    <div id="status"><span id="dot"></span><span id="status-text">live</span></div>
+    <span class="tag">AIOS second brain</span>
+    <div id="status"><span class="dot up" id="dot"></span><span id="status-text">live</span></div>
   </header>
   <main>
     <div id="date">—</div>
@@ -112,12 +85,10 @@
         const data = await res.json();
         document.getElementById('date').textContent = data.date || 'no digest yet';
         document.getElementById('content').innerHTML = data.html || '<p id="empty">Nothing here yet.</p>';
-        dot.style.background = '#2a9d5c';
-        dot.style.boxShadow = '0 0 6px #2a9d5c';
+        dot.className = 'dot up';
         statusText.textContent = 'live · updated ' + new Date().toLocaleTimeString();
       } catch (e) {
-        dot.style.background = '#c0392b';
-        dot.style.boxShadow = '0 0 6px #c0392b';
+        dot.className = 'dot down';
         statusText.textContent = 'connection lost, retrying…';
       }
     }

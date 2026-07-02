@@ -1,13 +1,15 @@
+import json
 import os
 import re
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Iterator
 
 import anthropic
 import httpx
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 import db
@@ -135,6 +137,7 @@ class ChatResponse(BaseModel):
 
 _UI = Path(__file__).parent / "ui.html"
 _HUB = Path(__file__).parent / "hub.html"
+_THEME = Path(__file__).parent / "theme.css"
 
 
 @app.get("/chat", response_class=HTMLResponse)
@@ -145,6 +148,31 @@ def ui():
 @app.get("/", response_class=HTMLResponse)
 def hub():
     return _HUB.read_text()
+
+
+@app.get("/theme.css")
+def theme_css():
+    return Response(content=_THEME.read_text(), media_type="text/css")
+
+
+@app.get("/api/hub-config")
+def hub_config():
+    """Per-tenant links for the hub's business-tool cards. Values come from the
+    injected .env (platform/ stays tenant-free — locked rule #5)."""
+    host = os.getenv("AIOS_HOSTNAME", "")
+
+    def _default(port: int) -> str:
+        return f"https://{host}:{port}/" if host else ""
+
+    flows = os.getenv("N8N_HOSTNAME", "")
+    if flows and not flows.startswith("http"):
+        flows = "https://" + flows
+    return {
+        "crm": os.getenv("TWENTY_SERVER_URL") or _default(8443),
+        "bi": os.getenv("METABASE_SITE_URL") or _default(8444),
+        "flows": flows or _default(8445),
+        "files": "/files",
+    }
 
 
 @app.get("/health")
@@ -219,29 +247,43 @@ def _extract_text(content_blocks) -> str:
     return "".join(b.text for b in content_blocks if b.type == "text")
 
 
-def agent_reply(message: str, session_id: str | None, mode: str = "second_brain") -> tuple[str, str]:
-    """The one agent loop — chat and voice both call this. Returns (session_id, reply)."""
+def agent_stream(
+    message: str, session_id: str | None, mode: str = "second_brain"
+) -> Iterator[tuple[str, str]]:
+    """The one agent loop — chat (streaming + non-streaming) and voice all run
+    through this. Yields events:
+      ("session", sid)    — once, as soon as the session is known
+      ("text", delta)     — a streamed chunk of assistant text
+      ("flush", "")       — text so far was pre-tool narration; a tool round ran
+      ("error", detail)   — API failure; nothing was persisted
+    The reply persisted (and returned by agent_reply) is the text after the
+    last flush — the final round only, matching the pre-streaming behavior."""
     if session_id and db.session_exists(session_id):
         sid = session_id
     else:
         sid = db.create_session(title=message[:60], mode=mode)
+    yield ("session", sid)
 
     history = db.get_messages(sid, limit=20)
     messages = [{"role": m["role"], "content": m["content"]} for m in history]
     messages.append({"role": "user", "content": message})
 
-    # Tool-use loop: keep going while Claude wants to call tools, up to a cap
+    reply = ""
     try:
         for _ in range(MAX_TOOL_ROUNDS):
-            resp = _client.messages.create(
+            with _client.messages.stream(
                 model=MODEL,
                 max_tokens=MAX_TOKENS,
                 system=build_system_prompt(),
                 messages=messages,
                 tools=TOOLS,
-            )
+            ) as stream:
+                for delta in stream.text_stream:
+                    reply += delta
+                    yield ("text", delta)
+                resp = stream.get_final_message()
+
             if resp.stop_reason != "tool_use":
-                reply = _extract_text(resp.content)
                 break
 
             messages.append({"role": "assistant", "content": resp.content})
@@ -254,10 +296,14 @@ def agent_reply(message: str, session_id: str | None, mode: str = "second_brain"
                     {"type": "tool_result", "tool_use_id": block.id, "content": result}
                 )
             messages.append({"role": "user", "content": tool_results})
+            reply = ""
+            yield ("flush", "")
         else:
             reply = "(hit tool-use round limit — try a more specific request)"
+            yield ("text", reply)
     except anthropic.APIError as e:
-        raise HTTPException(status_code=502, detail=str(e))
+        yield ("error", str(e))
+        return
 
     # Persist (only the original user message and final text reply — not the
     # intermediate tool_use/tool_result blocks, which are re-derivable per turn)
@@ -268,6 +314,19 @@ def agent_reply(message: str, session_id: str | None, mode: str = "second_brain"
     if len(history) == 0:
         db.update_session_title(sid, message[:60])
 
+
+def agent_reply(message: str, session_id: str | None, mode: str = "second_brain") -> tuple[str, str]:
+    """Non-streaming wrapper around agent_stream. Returns (session_id, reply)."""
+    sid, reply = "", ""
+    for kind, data in agent_stream(message, session_id, mode):
+        if kind == "session":
+            sid = data
+        elif kind == "text":
+            reply += data
+        elif kind == "flush":
+            reply = ""
+        elif kind == "error":
+            raise HTTPException(status_code=502, detail=data)
     return sid, reply
 
 
@@ -275,6 +334,29 @@ def agent_reply(message: str, session_id: str | None, mode: str = "second_brain"
 def chat(req: ChatRequest):
     sid, reply = agent_reply(req.message, req.session_id, req.mode)
     return ChatResponse(session_id=sid, reply=reply)
+
+
+@app.post("/chat/stream")
+def chat_stream(req: ChatRequest):
+    """SSE variant of /chat — events mirror agent_stream's, JSON per line."""
+
+    def gen():
+        for kind, data in agent_stream(req.message, req.session_id, req.mode):
+            payload = {"type": kind}
+            if kind == "session":
+                payload["session_id"] = data
+            elif kind == "text":
+                payload["text"] = data
+            elif kind == "error":
+                payload["detail"] = data
+            yield f"data: {json.dumps(payload)}\n\n"
+        yield 'data: {"type": "done"}\n\n'
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
 
 
 _VOICE_UI = Path(__file__).parent / "voice.html"

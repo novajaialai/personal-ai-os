@@ -4,50 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AIOS</title>
+<link rel="stylesheet" href="/theme.css">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: #0f0f0f;
-    color: #e8e8e8;
-    min-height: 100dvh;
-  }
-
-  header {
-    padding: 14px 24px;
-    border-bottom: 1px solid #1e1e1e;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    position: sticky;
-    top: 0;
-    background: #0f0f0f;
-    z-index: 10;
-  }
-
-  header h1 { font-size: 15px; font-weight: 600; letter-spacing: 0.04em; color: #fff; }
-  header span.tag { font-size: 12px; color: #555; }
+  header { position: sticky; top: 0; z-index: 10; padding: 14px 24px; }
 
   #global-status {
     margin-left: auto;
     font-size: 12px;
-    color: #666;
+    color: var(--text-faint);
     display: flex;
     align-items: center;
     gap: 6px;
   }
-
-  .dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #444;
-    flex-shrink: 0;
-    transition: background 0.3s, box-shadow 0.3s;
-  }
-  .dot.up { background: #2a9d5c; box-shadow: 0 0 6px #2a9d5c; }
-  .dot.down { background: #c0392b; box-shadow: 0 0 6px #c0392b; }
 
   main {
     max-width: 760px;
@@ -55,40 +23,35 @@
     padding: 32px 20px 80px;
   }
 
-  a { text-decoration: none; color: inherit; }
-
   .primary-card {
     display: block;
     background: linear-gradient(135deg, #17181b, #101012);
     border: 1px solid #262626;
     border-radius: 14px;
     padding: 22px 24px;
-    margin-bottom: 32px;
+    margin-bottom: 16px;
     transition: border-color 0.2s, transform 0.15s;
   }
-  .primary-card:hover { border-color: #3a3a3a; transform: translateY(-1px); }
+  .primary-card:hover { border-color: var(--border-hover); transform: translateY(-1px); }
 
   .primary-card .icon { font-size: 20px; margin-right: 10px; }
   .primary-card h2 { font-size: 18px; font-weight: 600; color: #fff; display: inline; }
-  .primary-card p { font-size: 13px; color: #888; margin-top: 6px; }
-  .primary-card .arrow { float: right; color: #555; font-size: 14px; }
+  .primary-card p { font-size: 13px; color: var(--text-dim); margin-top: 6px; }
+  .primary-card .arrow { float: right; color: var(--text-faint); font-size: 14px; }
 
-  .section-label {
-    font-size: 12px;
-    color: #666;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+  .voice-banner {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    margin: 0 0 10px;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    margin-bottom: 36px;
   }
-  .section-label a { color: #666; font-size: 12px; }
-  .section-label a:hover { color: #999; }
+  .voice-banner .name { font-size: 13px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  .voice-banner .desc { font-size: 13px; color: var(--text-faint); flex: 1; }
 
   .digest-preview {
-    background: #131313;
-    border: 1px solid #1e1e1e;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
     border-radius: 10px;
     padding: 16px 18px;
     font-size: 14px;
@@ -97,7 +60,7 @@
     margin-bottom: 36px;
     min-height: 20px;
   }
-  .digest-preview.empty { color: #555; font-style: italic; }
+  .digest-preview.empty { color: var(--text-faint); font-style: italic; }
 
   .card-grid {
     display: grid;
@@ -105,25 +68,16 @@
     gap: 12px;
   }
 
-  .service-card {
-    display: block;
-    background: #131313;
-    border: 1px solid #1e1e1e;
-    border-radius: 10px;
-    padding: 16px;
-    transition: border-color 0.2s, transform 0.15s;
-  }
-  .service-card:hover { border-color: #333; transform: translateY(-1px); }
-
+  .service-card { padding: 16px; }
   .service-card .top-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 8px;
   }
-  .service-card .name { font-size: 13px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.04em; }
+  .service-card .name { font-size: 13px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
   .service-card .title { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 3px; }
-  .service-card .desc { font-size: 12px; color: #777; }
+  .service-card .desc { font-size: 12px; color: var(--text-faint); }
 
   @media (max-width: 480px) {
     .card-grid { grid-template-columns: 1fr; }
@@ -144,13 +98,11 @@
       <p>Ask, capture, search — the main interface. Everything else here is a supporting tool.</p>
     </a>
 
-    <div class="card-grid" style="margin-bottom: 32px;">
-      <a class="service-card" href="/voice">
-        <div class="top-row"><span class="name">Voice</span><span class="dot" id="dot-voice"></span></div>
-        <div class="title">Push to talk</div>
-        <div class="desc">Same brain, spoken</div>
-      </a>
-    </div>
+    <a class="card voice-banner" href="/voice">
+      <span class="name">Voice</span>
+      <span class="desc">Push to talk — same brain, spoken</span>
+      <span class="dot" id="dot-voice"></span>
+    </a>
 
     <div class="section-label">
       <span>Today's digest</span>
@@ -160,22 +112,22 @@
 
     <div class="section-label"><span>Business tools</span></div>
     <div class="card-grid">
-      <a class="service-card" href="https://aios-jake-1.tail828365.ts.net:8443/" target="_blank" rel="noopener">
+      <a class="card service-card" id="link-crm" target="_blank" rel="noopener">
         <div class="top-row"><span class="name">CRM</span><span class="dot" id="dot-crm"></span></div>
         <div class="title">Twenty</div>
         <div class="desc">Contacts, leads, deals</div>
       </a>
-      <a class="service-card" href="https://aios-jake-1.tail828365.ts.net:8444/" target="_blank" rel="noopener">
+      <a class="card service-card" id="link-bi" target="_blank" rel="noopener">
         <div class="top-row"><span class="name">Dashboards</span><span class="dot" id="dot-bi"></span></div>
         <div class="title">Metabase</div>
         <div class="desc">BI, reporting, charts</div>
       </a>
-      <a class="service-card" href="https://aios-jake-1.tail828365.ts.net:8445/" target="_blank" rel="noopener">
+      <a class="card service-card" id="link-flows" target="_blank" rel="noopener">
         <div class="top-row"><span class="name">Workflows</span><span class="dot" id="dot-flows"></span></div>
         <div class="title">n8n</div>
         <div class="desc">Automation, integrations</div>
       </a>
-      <a class="service-card" href="/files" target="_blank" rel="noopener">
+      <a class="card service-card" id="link-files" href="/files" target="_blank" rel="noopener">
         <div class="top-row"><span class="name">Files</span><span class="dot" id="dot-nextcloud"></span></div>
         <div class="title">Nextcloud</div>
         <div class="desc">Vault sync</div>
@@ -185,6 +137,18 @@
 
   <script>
     const POLL_MS = 15000;
+
+    // Tool URLs are per-tenant — injected via the server from .env, never
+    // hardcoded here (platform/ stays tenant-free).
+    async function loadConfig() {
+      try {
+        const res = await fetch('/api/hub-config', { cache: 'no-store' });
+        const cfg = await res.json();
+        for (const key of ['crm', 'bi', 'flows', 'files']) {
+          if (cfg[key]) document.getElementById('link-' + key).href = cfg[key];
+        }
+      } catch (e) { /* cards stay unlinked until the agent is reachable */ }
+    }
 
     async function refreshDigest() {
       try {
@@ -223,6 +187,7 @@
       }
     }
 
+    loadConfig();
     refreshDigest();
     refreshStatus();
     setInterval(refreshDigest, POLL_MS);

@@ -4,13 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>AIOS — Voice</title>
+<link rel="stylesheet" href="/theme.css">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: #0f0f0f;
-    color: #e8e8e8;
     height: 100dvh;
     display: flex;
     flex-direction: column;
@@ -19,17 +15,20 @@
     gap: 28px;
     padding: 24px;
     user-select: none;
+    -webkit-user-select: none;
   }
 
-  h1 { font-size: 14px; font-weight: 600; letter-spacing: 0.06em; color: #666; text-transform: uppercase; position: absolute; top: 20px; }
+  .back { position: absolute; top: 20px; left: 20px; }
+
+  h1 { font-size: 14px; font-weight: 600; letter-spacing: 0.06em; color: var(--text-faint); text-transform: uppercase; position: absolute; top: 20px; }
 
   #talk-btn {
     width: 140px;
     height: 140px;
     border-radius: 50%;
-    border: 2px solid #2a2a2a;
-    background: #131313;
-    color: #e8e8e8;
+    border: 2px solid var(--border-strong);
+    background: var(--bg-raised);
+    color: var(--text);
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
@@ -38,8 +37,8 @@
     touch-action: none;
   }
   #talk-btn.recording {
-    background: #c0392b;
-    border-color: #e74c3c;
+    background: var(--danger);
+    border-color: var(--danger-bright);
     transform: scale(1.05);
     box-shadow: 0 0 30px rgba(231, 76, 60, 0.4);
   }
@@ -50,7 +49,7 @@
 
   #status {
     font-size: 13px;
-    color: #666;
+    color: var(--text-faint);
     text-align: center;
     max-width: 320px;
     min-height: 40px;
@@ -58,7 +57,7 @@
 
   #transcript, #reply {
     font-size: 14px;
-    color: #999;
+    color: var(--text-dim);
     text-align: center;
     max-width: 400px;
     line-height: 1.5;
@@ -66,21 +65,24 @@
   #reply { color: #ddd; }
 
   #error {
-    color: #e74c3c;
+    color: var(--danger-bright);
     font-size: 13px;
     text-align: center;
     max-width: 340px;
   }
+
+  #change-voice { color: var(--text-faint); font-size: 12px; text-decoration: underline; }
 </style>
 </head>
 <body>
+  <a class="back" href="/">← Hub</a>
   <h1>Push to talk</h1>
   <button id="talk-btn">Hold to talk</button>
   <div id="status">Hold the button and speak</div>
   <div id="transcript"></div>
   <div id="reply"></div>
   <div id="error"></div>
-  <a href="/voice-picker" style="color:#555;font-size:12px;text-decoration:underline;">Change voice</a>
+  <a id="change-voice" href="/voice-picker">Change voice</a>
 
   <script>
     const btn = document.getElementById('talk-btn');
@@ -95,6 +97,14 @@
     function getSessionId() { return localStorage.getItem(SESSION_KEY); }
     function setSessionId(id) { if (id) localStorage.setItem(SESSION_KEY, id); }
 
+    // iOS Safari's MediaRecorder can't produce webm — fall back to mp4.
+    function pickMime() {
+      for (const m of ['audio/webm', 'audio/mp4']) {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m;
+      }
+      return ''; // let the browser pick its default
+    }
+
     async function startRecording() {
       errorEl.textContent = '';
       try {
@@ -104,7 +114,8 @@
         return;
       }
       chunks = [];
-      mediaRecorder = new MediaRecorder(stream);
+      const mime = pickMime();
+      mediaRecorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
       mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
       mediaRecorder.start();
       btn.classList.add('recording');
@@ -124,9 +135,11 @@
       stream.getTracks().forEach((t) => t.stop());
       await stopped;
 
-      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const mime = mediaRecorder.mimeType || 'audio/webm';
+      const ext = mime.includes('mp4') ? 'mp4' : 'webm';
+      const blob = new Blob(chunks, { type: mime });
       const form = new FormData();
-      form.append('audio', blob, 'audio.webm');
+      form.append('audio', blob, 'audio.' + ext);
       const sid = getSessionId();
       if (sid) form.append('session_id', sid);
 
@@ -154,10 +167,15 @@
       }
     }
 
-    btn.addEventListener('mousedown', startRecording);
-    btn.addEventListener('mouseup', stopRecording);
-    btn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); });
-    btn.addEventListener('touchend', (e) => { e.preventDefault(); stopRecording(); });
+    // Pointer events + capture: release anywhere (even after dragging off the
+    // button) still ends the recording — mouse/touch each had hold-forever bugs.
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      btn.setPointerCapture(e.pointerId);
+      startRecording();
+    });
+    btn.addEventListener('pointerup', (e) => { e.preventDefault(); stopRecording(); });
+    btn.addEventListener('pointercancel', () => stopRecording());
   </script>
 </body>
 </html>

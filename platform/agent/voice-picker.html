@@ -4,22 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AIOS — Voice Picker</title>
+<link rel="stylesheet" href="/theme.css">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: #0f0f0f;
-    color: #e8e8e8;
-    min-height: 100dvh;
-  }
-
-  header {
-    padding: 14px 20px;
-    border-bottom: 1px solid #1e1e1e;
-  }
-  header h1 { font-size: 15px; font-weight: 600; letter-spacing: 0.04em; color: #fff; }
-  header p { font-size: 12px; color: #666; margin-top: 4px; }
+  header { display: block; }
+  header .top { display: flex; align-items: center; gap: 10px; }
+  header p { font-size: 12px; color: var(--text-faint); margin-top: 4px; }
 
   main {
     max-width: 560px;
@@ -34,45 +23,34 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    background: #131313;
-    border: 1px solid #1e1e1e;
-    border-radius: 10px;
     padding: 12px 16px;
   }
-  .voice-row.current { border-color: #2a9d5c; }
+  .voice-row.current { border-color: var(--accent); }
 
   .voice-name { flex: 1; font-size: 15px; font-weight: 500; }
   .voice-name .badge {
     display: inline-block;
     margin-left: 8px;
     font-size: 10px;
-    color: #2a9d5c;
-    border: 1px solid #2a9d5c;
+    color: var(--accent);
+    border: 1px solid var(--accent);
     border-radius: 4px;
     padding: 1px 6px;
     text-transform: uppercase;
   }
 
-  button {
-    background: #1a1a1a;
-    border: 1px solid #2a2a2a;
-    color: #ccc;
-    border-radius: 8px;
-    padding: 8px 14px;
-    font-size: 13px;
-    cursor: pointer;
-  }
-  button:hover { border-color: #444; color: #fff; }
-  button:disabled { opacity: 0.4; cursor: default; }
-  button.use-btn { background: #17321f; border-color: #2a9d5c; color: #4ade80; }
+  button.use-btn { background: var(--accent-dim); border-color: var(--accent); color: var(--accent-bright); }
   button.use-btn:hover { background: #1c3d26; }
 
-  #status { font-size: 13px; color: #888; margin-top: 10px; min-height: 20px; }
+  #status { font-size: 13px; color: var(--text-dim); margin-top: 10px; min-height: 20px; }
 </style>
 </head>
 <body>
   <header>
-    <h1>VOICE PICKER</h1>
+    <div class="top">
+      <a class="back" href="/voice">← Voice</a>
+      <h1>VOICE PICKER</h1>
+    </div>
     <p>Preview each voice, then pick the one you want the agent to use. Takes effect immediately, no restart.</p>
   </header>
   <main id="voices">Loading…</main>
@@ -94,7 +72,7 @@
       container.innerHTML = '';
       for (const [name, id] of Object.entries(voices)) {
         const row = document.createElement('div');
-        row.className = 'voice-row' + (id === currentVoiceId ? ' current' : '');
+        row.className = 'card voice-row' + (id === currentVoiceId ? ' current' : '');
         row.dataset.voiceId = id;
         row.innerHTML = `
           <div class="voice-name">${name}${id === currentVoiceId ? '<span class="badge">Active</span>' : ''}</div>
