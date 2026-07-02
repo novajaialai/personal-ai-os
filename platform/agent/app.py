@@ -13,6 +13,7 @@ from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 import db
+import services
 import vault
 import voice
 from prompts import build_system_prompt
@@ -71,6 +72,35 @@ TOOLS = [
             "required": ["path", "content"],
         },
     },
+    {
+        "name": "service_api",
+        "description": (
+            "Call the REST API of a business service running on this box. Services and their APIs:\n"
+            "- crm: Twenty CRM. REST at /rest/<objectPlural> (people, companies, opportunities, notes, tasks). "
+            "Create person: POST /rest/people with {'name':{'firstName':...,'lastName':...},'emails':{'primaryEmail':...},'phones':{'primaryPhoneNumber':...},'jobTitle':...,'city':...}. "
+            "Link to company via companyId. Search: GET /rest/people?filter=name.firstName[eq]:Jane or GraphQL POST /graphql. "
+            "GET /rest/people returns all people; GET /open-api/core returns the full schema if unsure.\n"
+            "- metabase: Metabase API. GET /api/database lists DBs; POST /api/dataset runs a query "
+            "{'database':<id>,'type':'native','native':{'query':'SELECT …'}}; /api/card for saved questions; /api/dashboard for dashboards.\n"
+            "- n8n: n8n public API under /api/v1 (workflows, executions). GET /api/v1/workflows lists; "
+            "POST /api/v1/workflows creates; POST /api/v1/workflows/{id}/activate activates.\n"
+            "- nextcloud: OCS API under /ocs/v2.php (users, shares — append ?format=json) and WebDAV under "
+            "/remote.php/dav/files/<user>/ (PROPFIND to list, PUT via body as string).\n"
+            "Rules: read freely; create/update freely when the user asked for it; for DELETE or anything "
+            "destructive, confirm with the user first unless they just explicitly asked for that exact deletion."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "service": {"type": "string", "enum": ["crm", "metabase", "n8n", "nextcloud"]},
+                "method": {"type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "PROPFIND", "MKCOL"]},
+                "path": {"type": "string", "description": "Path starting with /, e.g. /rest/people"},
+                "body": {"type": "object", "description": "JSON body for POST/PUT/PATCH"},
+                "params": {"type": "object", "description": "Query-string parameters"},
+            },
+            "required": ["service", "method", "path"],
+        },
+    },
 ]
 
 
@@ -91,6 +121,14 @@ def _run_tool(name: str, tool_input: dict) -> str:
         if name == "append_note":
             path = vault.append_note(tool_input["path"], tool_input["content"])
             return f"appended to {path}"
+        if name == "service_api":
+            return services.call(
+                tool_input["service"],
+                tool_input["method"],
+                tool_input["path"],
+                body=tool_input.get("body"),
+                params=tool_input.get("params"),
+            )
         return f"unknown tool: {name}"
     except (vault.VaultPathError, FileNotFoundError) as e:
         return f"error: {e}"
@@ -178,6 +216,12 @@ def hub_config():
 @app.get("/health")
 def health():
     return {"status": "ok", "model": MODEL}
+
+
+@app.get("/api/services")
+def api_services():
+    """Which business services the agent can operate (keys present in .env)."""
+    return services.status()
 
 
 # Reachable by Docker Compose service name from inside the network — see
