@@ -5,7 +5,7 @@
 # Deterministic pre-check first: if there's genuinely nothing new to review,
 # skip the LLM call entirely and write the digest directly. Burning Claude
 # subscription quota to report "nothing pending" is exactly the waste a
-# quota-first routing policy (see novajaialai/switchboard) exists to avoid —
+# quota-first routing policy (see novajaialai/fusion-stack — openrouter-max tiers) exists to avoid —
 # the cheapest, most correct route for a trivial check is no model call at
 # all, not just a cheaper model.
 set -euo pipefail

@@ -22,14 +22,11 @@ runcmd:
   - curl -fsSL https://get.docker.com | sh
   - systemctl enable --now docker
   # Tailscale: private mesh access, nothing exposed publicly
-  - curl -fsSL https://tailscale.com/install.sh | sh
-  - tailscale up --ssh --authkey "${TAILSCALE_AUTH_KEY}" --hostname aios-${TENANT}
   # Host firewall: default deny inbound (Tailscale carries real traffic)
   - sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
   - systemctl reload ssh
   - ufw default deny incoming
   - ufw default allow outgoing
-  - ufw allow in on tailscale0
   - ufw allow 22 comment 'admin SSH fallback (key-only auth)'
   - ufw --force enable
   - echo 'Personal AI OS base ready. Run scripts/bootstrap.sh next.'

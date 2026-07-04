@@ -5,8 +5,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Iterator
 
-import anthropic
 import httpx
+import openai
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
@@ -18,11 +18,11 @@ import vault
 import voice
 from prompts import build_system_prompt
 
-MODEL = os.getenv("AGENT_MODEL", "claude-sonnet-4-6")
+MODEL = os.getenv("AGENT_MODEL", "deepseek/deepseek-v4-pro")
 MAX_TOKENS = int(os.getenv("AGENT_MAX_TOKENS", "4096"))
 MAX_TOOL_ROUNDS = 8
 
-_client: anthropic.Anthropic | None = None
+_client: openai.OpenAI | None = None
 
 TOOLS = [
     {
@@ -134,15 +134,21 @@ def _run_tool(name: str, tool_input: dict) -> str:
         return f"error: {e}"
 
 
-def _make_client() -> anthropic.Anthropic:
-    """Prefer ANTHROPIC_AUTH_TOKEN (OAuth bearer) over ANTHROPIC_API_KEY."""
-    auth_token = os.getenv("ANTHROPIC_AUTH_TOKEN")
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if auth_token:
-        return anthropic.Anthropic(auth_token=auth_token)
-    if api_key:
-        return anthropic.Anthropic(api_key=api_key)
-    raise RuntimeError("Set ANTHROPIC_AUTH_TOKEN (OAuth) or ANTHROPIC_API_KEY in environment")
+def _make_client() -> openai.OpenAI:
+    """OpenAI-compatible client pointed at OpenRouter (or any AGENT_BASE_URL)."""
+    api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("AGENT_API_KEY")
+    if not api_key:
+        raise RuntimeError("Set OPENROUTER_API_KEY (or AGENT_API_KEY) in environment")
+    return openai.OpenAI(
+        base_url=os.getenv("AGENT_BASE_URL", "https://openrouter.ai/api/v1"),
+        api_key=api_key,
+    )
+
+
+def _openai_tools() -> list[dict]:
+    return [{"type": "function",
+             "function": {"name": t["name"], "description": t["description"],
+                          "parameters": t["input_schema"]}} for t in TOOLS]
 
 
 @asynccontextmanager
@@ -314,38 +320,54 @@ def agent_stream(
 
     reply = ""
     try:
+        chat = [{"role": "system", "content": build_system_prompt()}] + messages
         for _ in range(MAX_TOOL_ROUNDS):
-            with _client.messages.stream(
-                model=MODEL,
-                max_tokens=MAX_TOKENS,
-                system=build_system_prompt(),
-                messages=messages,
-                tools=TOOLS,
-            ) as stream:
-                for delta in stream.text_stream:
-                    reply += delta
-                    yield ("text", delta)
-                resp = stream.get_final_message()
+            stream = _client.chat.completions.create(
+                model=MODEL, max_tokens=MAX_TOKENS, messages=chat,
+                tools=_openai_tools(), stream=True,
+            )
+            tool_calls: dict[int, dict] = {}
+            finish = None
+            for chunk in stream:
+                if not chunk.choices:
+                    continue
+                ch = chunk.choices[0]
+                if ch.delta and ch.delta.content:
+                    reply += ch.delta.content
+                    yield ("text", ch.delta.content)
+                for tc in (ch.delta.tool_calls or []):
+                    slot = tool_calls.setdefault(
+                        tc.index, {"id": "", "name": "", "args": ""})
+                    if tc.id:
+                        slot["id"] = tc.id
+                    if tc.function and tc.function.name:
+                        slot["name"] = tc.function.name
+                    if tc.function and tc.function.arguments:
+                        slot["args"] += tc.function.arguments
+                if ch.finish_reason:
+                    finish = ch.finish_reason
 
-            if resp.stop_reason != "tool_use":
+            if finish != "tool_calls" or not tool_calls:
                 break
 
-            messages.append({"role": "assistant", "content": resp.content})
-            tool_results = []
-            for block in resp.content:
-                if block.type != "tool_use":
-                    continue
-                result = _run_tool(block.name, block.input)
-                tool_results.append(
-                    {"type": "tool_result", "tool_use_id": block.id, "content": result}
-                )
-            messages.append({"role": "user", "content": tool_results})
+            chat.append({"role": "assistant", "content": reply or None,
+                         "tool_calls": [
+                             {"id": c["id"], "type": "function",
+                              "function": {"name": c["name"], "arguments": c["args"]}}
+                             for c in tool_calls.values()]})
+            for c in tool_calls.values():
+                try:
+                    args = json.loads(c["args"] or "{}")
+                except json.JSONDecodeError:
+                    args = {}
+                chat.append({"role": "tool", "tool_call_id": c["id"],
+                             "content": _run_tool(c["name"], args)})
             reply = ""
             yield ("flush", "")
         else:
             reply = "(hit tool-use round limit — try a more specific request)"
             yield ("text", reply)
-    except anthropic.APIError as e:
+    except openai.OpenAIError as e:
         yield ("error", str(e))
         return
 

@@ -313,3 +313,9 @@ DNS-clobbering or firewall-blocking-CGNAT issues (see Phase 2 section above) —
 `ts-mullvad-reconcile.timer`, there's no macOS daemon reasserting Tailscale's DNS/firewall
 exceptions after a Mullvad reconnect. Worth building if this keeps recurring; needs Jake's
 interactive `sudo` to inspect `pfctl` rules first.
+
+## 2026-07-03 — Brain swap: Claude → Hermes + OpenRouter
+- platform/agent now speaks OpenAI-schema to OpenRouter (`OPENROUTER_API_KEY`, `AGENT_MODEL`, `AGENT_BASE_URL`). Anthropic SDK removed.
+- Hermes (NousResearch/hermes-agent, headless, computer_use disabled) is installed at ~/.hermes on the box; gateway runs as a systemd user service. Workloads arrive via `vps-run` (SSH) from personal devices.
+- Tailscale REMOVED from the VPS (and from cloud-init): access is plain SSH keys to the public IP, port 22 key-only. Personal devices keep their own tailnet.
+- Tier policy + toolkit: see novajaialai/fusion-stack.
