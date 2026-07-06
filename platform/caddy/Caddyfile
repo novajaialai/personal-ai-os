@@ -1,4 +1,4 @@
-# Internal HTTP router — Tailscale serve handles TLS externally.
+# Internal HTTP router — TLS is terminated at the Cloudflare edge (Tunnel + Access).
 # Listens on :80 inside Docker; exposed to host as 127.0.0.1:8080.
 
 :80 {

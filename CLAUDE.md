@@ -56,11 +56,14 @@ one VPS per customer, customized by conversation.
 
 ## Hard guardrails (security + correctness — never violate)
 
-1. **Tailnet-only.** Nothing is exposed to the public internet. Access is via Tailscale. Host
-   firewall default-denies inbound except on `tailscale0`.
-2. **Docker bypasses UFW.** Docker writes its own iptables rules. **Every published port must bind
-   to the box's Tailscale IP (`${TAILSCALE_IP}`), never `0.0.0.0`.** Verify with `nc` against the
-   public IP — it must refuse.
+1. **Cloudflare Tunnel + Access is the only front door** (superseded "Tailnet-only" on
+   2026-07-03/06 — Tailscale was removed from the VPS). Nothing listens publicly except SSH
+   (port 22, keys only); web traffic enters via the outbound-only `agent-os` tunnel, and every
+   tunnel hostname MUST have an enforcing Cloudflare Access app BEFORE its DNS route goes live.
+   See `infra/agent-os/README.md`.
+2. **Docker bypasses UFW.** Docker writes its own iptables rules. **Every published port must
+   bind to `127.0.0.1`, never `0.0.0.0`.** Verify with `nc`/`curl` against the public IP — it
+   must refuse.
 3. **Secrets discipline.** Real secrets never land in git as plaintext. Use **SOPS + age**;
    decrypt-at-deploy on the box only. The age private key + restic passphrase live off-box in a
    password manager. `.gitignore` blocks `.env`, `secrets/`, `*.tfvars`, `*.tfstate`.

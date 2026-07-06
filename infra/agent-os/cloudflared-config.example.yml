@@ -1,7 +1,19 @@
 tunnel: 9704100e-6381-4ae1-a5c5-603dcac4d270
 credentials-file: /home/aios/.cloudflared/9704100e-6381-4ae1-a5c5-603dcac4d270.json
 
+# Live config: /etc/cloudflared/config.yml (system cloudflared.service).
+# Every hostname below MUST be covered by a Cloudflare Access app BEFORE
+# its DNS route goes live (apps: "agentos", "aios-platform" — policy Only Jake).
 ingress:
   - hostname: agentos.jacobdart.com
-    service: http://127.0.0.1:3737
+    service: http://127.0.0.1:3737   # Agent OS (Next.js Mission Control)
+  - hostname: aios.jacobdart.com
+    service: http://127.0.0.1:8080   # Caddy: agent chat UI /, Nextcloud /files, intake /intake
+  - hostname: crm.jacobdart.com
+    service: http://127.0.0.1:8081   # Twenty CRM
+  - hostname: metabase.jacobdart.com
+    service: http://127.0.0.1:8082   # Metabase
+  - hostname: n8n.jacobdart.com
+    service: http://127.0.0.1:8083   # n8n (NOTE: external webhooks blocked by Access;
+                                     # add a bypass Access app for /webhook/* if ever needed)
   - service: http_status:404

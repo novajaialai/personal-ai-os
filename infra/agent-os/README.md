@@ -1,9 +1,30 @@
-# Agent OS front door — Cloudflare Tunnel + Access
+# Box front door — Cloudflare Tunnel + Access
 
 Agent OS ("Agentic OS", Julian Goldie's Next.js Mission Control) runs on this box as the
 central agent dashboard and is exposed to the public internet at **https://agentos.jacobdart.com**,
 gated by Cloudflare Access. Deployed 2026-07-05. Integrated alongside the `platform/` stack
 (nothing was overwritten).
+
+**2026-07-06 — tunnel extended to the whole platform stack** (same tunnel `agent-os`, new
+Access app **aios-platform**, same "Only Jake" policy, all verified 302 → Access login):
+
+| Hostname | Backend | App |
+|---|---|---|
+| agentos.jacobdart.com | 127.0.0.1:3737 | Agent OS |
+| aios.jacobdart.com | 127.0.0.1:8080 | Caddy → agent chat `/`, Nextcloud `/files`, intake `/intake` |
+| crm.jacobdart.com | 127.0.0.1:8081 | Twenty CRM |
+| metabase.jacobdart.com | 127.0.0.1:8082 | Metabase |
+| n8n.jacobdart.com | 127.0.0.1:8083 | n8n |
+
+App-level config updated to match: `.env` `N8N_HOSTNAME=n8n.jacobdart.com`,
+`TWENTY_SERVER_URL=https://crm.jacobdart.com` (old Tailscale values backed up in
+`.env.bak-tunnel-*` on the box); Nextcloud `trusted_domains += aios.jacobdart.com`,
+`overwritehost/overwriteprotocol/overwrite.cli.url` set. Local port bindings unchanged, so
+laptop-side SSH tunnels (e.g. `crm_import.py` → localhost:8081) still work.
+
+**Caveat:** anything behind Access is unreachable by third-party services — n8n inbound
+webhooks and the `/intake` capture endpoint will 302 to a login page. When external webhooks
+are needed, add a separate Access app for that exact path with a Service-Auth/Bypass policy.
 
 ## Topology
 
