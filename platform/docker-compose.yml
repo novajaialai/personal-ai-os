@@ -7,6 +7,8 @@ services:
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
+      - ./hub:/srv/hub:ro
+      - /srv/aios/vault/Business/aeo-reports:/srv/aeo:ro
     # Internal only — tailscale serve handles TLS + external access
     ports:
       - "127.0.0.1:8080:80"
