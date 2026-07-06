@@ -1,0 +1,18 @@
+[Unit]
+Description=Agentic OS (Mission Control dashboard)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aios
+WorkingDirectory=/home/aios/agent-os/source
+Environment=PORT=3737
+Environment=NODE_ENV=production
+Environment=PATH=/home/aios/.local/bin:/usr/bin:/bin:/usr/local/bin
+ExecStart=/usr/bin/npm start
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,7 @@
+tunnel: 9704100e-6381-4ae1-a5c5-603dcac4d270
+credentials-file: /home/aios/.cloudflared/9704100e-6381-4ae1-a5c5-603dcac4d270.json
+
+ingress:
+  - hostname: agentos.jacobdart.com
+    service: http://127.0.0.1:3737
+  - service: http_status:404
