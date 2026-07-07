@@ -320,7 +320,7 @@ def agent_stream(
 
     reply = ""
     try:
-        chat = [{"role": "system", "content": build_system_prompt()}] + messages
+        chat = [{"role": "system", "content": build_system_prompt(mode)}] + messages
         for _ in range(MAX_TOOL_ROUNDS):
             stream = _client.chat.completions.create(
                 model=MODEL, max_tokens=MAX_TOKENS, messages=chat,

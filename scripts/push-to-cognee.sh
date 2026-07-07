@@ -21,7 +21,17 @@ DATASET="${2:-$(basename "$PATH_IN")}"
 NO_COGNIFY=0; for a in "$@"; do [ "$a" = "--no-cognify" ] && NO_COGNIFY=1; done
 
 COGNEE="http://127.0.0.1:8011"
-KEY=$(python3 -c 'import json;print(json.load(open(f"{__import__("os").path.expanduser("~")}/.cognee/api_key.json"))["api_key"])')
+# key lives at ~/.cognee/api_key.json on the VPS, ~/.cognee-plugin/api_key.json on the Mac
+KEY=$(python3 - <<'PY'
+import json, os
+for p in ("~/.cognee/api_key.json", "~/.cognee-plugin/api_key.json"):
+    p = os.path.expanduser(p)
+    if os.path.exists(p):
+        print(json.load(open(p))["api_key"]); break
+else:
+    raise SystemExit("no cognee api_key.json found")
+PY
+)
 
 [ -d "$PATH_IN" ] || { echo "no such dir: $PATH_IN" >&2; exit 1; }
 
