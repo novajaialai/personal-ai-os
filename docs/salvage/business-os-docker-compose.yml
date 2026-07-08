@@ -1,0 +1,150 @@
+# Business OS — the full internal stack on one VPS, fronted by Cloudflare.
+# Off-the-shelf OSS (EspoCRM/Metabase/n8n/Cal.com) + the custom cockpit + cloudflared tunnel.
+# TLS terminates at Cloudflare; cloudflared routes hostnames -> services (no inbound ports open).
+#
+#   cp .env.example .env   # fill in secrets + DOMAIN + TUNNEL_TOKEN
+#   docker compose up -d
+
+name: business-os
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  # ---- datastores ----
+  postgres:
+    <<: *restart
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${PG_USER:-businessos}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?set PG_PASSWORD}
+      POSTGRES_DB: businessos
+    volumes:
+      - pg:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro,z   # z = SELinux relabel (podman); no-op on non-SELinux Docker
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-businessos}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mariadb:           # EspoCRM speaks MySQL/MariaDB
+    <<: *restart
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIA_ROOT_PASSWORD:?set MARIA_ROOT_PASSWORD}
+      MARIADB_DATABASE: espocrm
+      MARIADB_USER: espocrm
+      MARIADB_PASSWORD: ${ESPO_DB_PASSWORD:?set ESPO_DB_PASSWORD}
+    volumes:
+      - maria:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    <<: *restart
+    image: redis:7-alpine
+    volumes:
+      - redis:/data
+
+  # ---- the cockpit (what we build) ----
+  cockpit:
+    <<: *restart
+    build: ./cockpit
+    environment:
+      PORT: 8990
+      ESPOCRM_URL: https://crm.${DOMAIN}
+      METABASE_URL: https://bi.${DOMAIN}
+      N8N_URL: https://flows.${DOMAIN}
+      CALCOM_URL: https://cal.${DOMAIN}
+    volumes:
+      - cockpit-data:/app/data
+      - ${DATA_DIR:-./data}:/data:ro,z      # prospects.json + knowledge.db + kb (synced from laptop)
+
+  # ---- CRM ----
+  espocrm:
+    <<: *restart
+    image: espocrm/espocrm:latest
+    environment:
+      ESPOCRM_DATABASE_PLATFORM: Mysql
+      ESPOCRM_DATABASE_HOST: mariadb
+      ESPOCRM_DATABASE_USER: espocrm
+      ESPOCRM_DATABASE_PASSWORD: ${ESPO_DB_PASSWORD}
+      ESPOCRM_ADMIN_USERNAME: admin
+      ESPOCRM_ADMIN_PASSWORD: ${ESPO_ADMIN_PASSWORD:?set ESPO_ADMIN_PASSWORD}
+      ESPOCRM_SITE_URL: https://crm.${DOMAIN}
+    volumes:
+      - espocrm:/var/www/html
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+  # ---- BI / analytics (= EOS Scorecard surface) ----
+  metabase:
+    <<: *restart
+    image: metabase/metabase:latest
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: 5432
+      MB_DB_USER: ${PG_USER:-businessos}
+      MB_DB_PASS: ${PG_PASSWORD}
+      MB_DB_HOST: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ---- workflow automation (the spine) ----
+  n8n:
+    <<: *restart
+    image: n8nio/n8n:latest
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_USER: ${PG_USER:-businessos}
+      DB_POSTGRESDB_PASSWORD: ${PG_PASSWORD}
+      N8N_HOST: flows.${DOMAIN}
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: https://flows.${DOMAIN}/
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?set N8N_ENCRYPTION_KEY}
+      GENERIC_TIMEZONE: ${TZ:-America/Denver}
+    volumes:
+      - n8n:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ---- scheduling / booking ----
+  calcom:
+    <<: *restart
+    image: calcom/cal.com:latest
+    environment:
+      DATABASE_URL: postgresql://${PG_USER:-businessos}:${PG_PASSWORD}@postgres:5432/calcom
+      DATABASE_DIRECT_URL: postgresql://${PG_USER:-businessos}:${PG_PASSWORD}@postgres:5432/calcom
+      NEXT_PUBLIC_WEBAPP_URL: https://cal.${DOMAIN}
+      NEXTAUTH_URL: https://cal.${DOMAIN}
+      NEXTAUTH_SECRET: ${CALCOM_NEXTAUTH_SECRET:?set CALCOM_NEXTAUTH_SECRET}
+      CALENDSO_ENCRYPTION_KEY: ${CALCOM_ENCRYPTION_KEY:?set CALCOM_ENCRYPTION_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ---- Cloudflare tunnel: the only thing talking to the internet (outbound only) ----
+  cloudflared:
+    <<: *restart
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    depends_on:
+      - cockpit
+
+volumes:
+  pg:
+  maria:
+  redis:
+  espocrm:
+  n8n:
+  cockpit-data:
