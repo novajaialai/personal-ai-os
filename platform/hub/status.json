@@ -1,0 +1,19 @@
+{
+  "generated": "2026-07-06T07:01:39Z",
+  "containers_up": 12,
+  "containers_total": 12,
+  "load1": 0.04,
+  "cpus": 8,
+  "mem_used_pct": 34,
+  "disk_used_pct": 12,
+  "uptime": "6d 7h 20m",
+  "aeo_last": "2026-07-06",
+  "services": {
+    "agent": true,
+    "agentos": true,
+    "twenty": true,
+    "metabase": true,
+    "n8n": true,
+    "nextcloud": true
+  }
+}

@@ -23,6 +23,19 @@
 		reverse_proxy nextcloud:80
 	}
 
+	# Machine Room portal (static) + AEO report browser — see platform/hub/
+	handle /hub/aeo/* {
+		uri strip_prefix /hub/aeo
+		root * /srv/aeo
+		file_server browse
+	}
+	handle /hub* {
+		uri strip_prefix /hub
+		root * /srv/hub
+		try_files {path} /index.html
+		file_server
+	}
+
 	# Agent handles everything else including the chat UI at /
 	handle {
 		reverse_proxy agent:3000
